@@ -1,0 +1,12 @@
+{
+  "name": "taishigong-web",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Taishigong interactive narrative - static site + optional local generation server. Server files use .mjs (ESM); browser modules stay classic scripts.",
+  "scripts": {
+    "start": "node server/index.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
