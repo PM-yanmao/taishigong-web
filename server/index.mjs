@@ -114,10 +114,8 @@ async function callModel(messages) {
 function preparePrompt(p) {
   const session = getSession(p.sessionId);
   const facts = ANCHORS.nodeFacts[p.nodeId] || null;
-  /* 只信服务端查表结果，客户端仅传 {id,label}，不能篡改否定段内容 */
-  const raw = p.overreach ? OVERREACH.byId(p.overreach.id) : null;
-  const rule = raw ? Object.assign({}, raw, { narrativeRules: OVERREACH.NARRATIVE_RULES }) : null;
-  const system = buildSystem(ANCHORS, facts, rule);
+  /* 可行性判定交给模型；前端传来的 hint 只作为参考提示写进 user 消息 */
+  const system = buildSystem(ANCHORS, facts);
   const baseUser = buildUser({
     ...p,
     recentTexts: p.recentTexts && p.recentTexts.length ? p.recentTexts : session.recentTexts,
@@ -127,7 +125,13 @@ function preparePrompt(p) {
 }
 function finalize(data, p) {
   data.source = 'server';
-  if (p.overreach) data.overreach = p.overreach.id;
+  /* 模型自己判为做不到：这一页只是念头被现实压回，不推进剧情、不给下一节点 */
+  const notFeasible = data.feasible === false || data.feasible === 'false';
+  data.feasible = !notFeasible;
+  if (notFeasible) {
+    data.overreach = String(data.overreach || '此非其时所能为').slice(0, 24);
+    data.nextOptionId = '';
+  }
   normalizeCitations(data);
   record(p.sessionId, p, data, { source: 'server' });
   return data;

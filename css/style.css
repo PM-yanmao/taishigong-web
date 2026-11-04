@@ -500,27 +500,46 @@ body::before {
 /* ============================================================
    自书 · 自定义文本选项
    ============================================================ */
-.freewrite { margin-top: 26px; max-width: var(--w-read); border-top: 1px dashed var(--line); padding-top: 16px; }
+.freewrite { margin-top: 32px; max-width: var(--w-read); border-top: 1px dashed var(--line); padding-top: 20px; }
 .freewrite-toggle {
-  font-family: var(--font-body); font-size: 17px; letter-spacing: 2px;
-  color: var(--paper-dim); background: none; border: 0; padding: 4px 0; cursor: pointer;
+  display: inline-flex; align-items: baseline; gap: 10px;
+  font-family: var(--font-body); font-size: 18px; letter-spacing: 3px;
+  color: var(--gold);
+  background: none; border: 0; border-bottom: 1px solid var(--gold-dim);
+  padding: 3px 0 6px; cursor: pointer;
+  transition: color .18s, border-color .18s;
 }
-.freewrite-toggle:hover { color: var(--gold); }
-.freewrite-left { font-family: var(--font-ui); font-size: 12px; color: var(--paper-faint); letter-spacing: 0; margin-left: 10px; }
-.freewrite.spent .freewrite-toggle { color: var(--paper-faint); cursor: default; }
-.freewrite-body { margin-top: 14px; }
-.freewrite-hint { font-family: var(--font-ui); font-size: 12px; line-height: 1.8; color: var(--paper-faint); margin: 0 0 10px; }
+.freewrite-toggle:hover { color: #f6d97e; border-bottom-color: var(--gold); }
+.freewrite-left {
+  font-family: var(--font-ui); font-size: 12px; letter-spacing: 0;
+  color: rgba(232, 195, 90, 0.58);
+}
+.freewrite.spent .freewrite-toggle { color: var(--paper-faint); border-bottom-color: transparent; cursor: default; }
+.freewrite.spent .freewrite-left { color: var(--paper-faint); }
+.freewrite-body { margin-top: 16px; }
+.freewrite-hint { font-family: var(--font-ui); font-size: 13px; line-height: 1.9; color: var(--paper-dim); margin: 0 0 12px; }
+.freewrite-samples { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 14px; }
+.freewrite-samples .sample {
+  font-family: var(--font-ui); font-size: 12.5px; letter-spacing: .4px;
+  color: var(--paper-dim); background: rgba(232, 195, 90, 0.05);
+  border: 1px solid var(--line); padding: 5px 11px; cursor: pointer;
+  transition: color .16s, border-color .16s, background .16s;
+}
+.freewrite-samples .sample:hover {
+  color: var(--gold); border-color: var(--gold-dim); background: rgba(232, 195, 90, 0.1);
+}
 .freewrite textarea {
-  width: 100%; resize: vertical; min-height: 74px; padding: 12px 14px;
-  font-family: var(--font-body); font-size: 17px; line-height: 1.7;
+  width: 100%; resize: vertical; min-height: 90px; padding: 14px 16px;
+  font-family: var(--font-body); font-size: 18px; line-height: 1.75;
   color: var(--paper); background: rgba(20, 18, 15, 0.72);
   border: 1px solid var(--line); outline: none;
+  transition: border-color .18s;
 }
-.freewrite textarea:focus { border-color: var(--gold-dim); }
+.freewrite textarea:focus { border-color: var(--gold); }
 .freewrite textarea::placeholder { color: var(--paper-faint); }
-.freewrite-row { display: flex; gap: 12px; margin-top: 12px; }
-.freewrite-row .btn { min-height: 42px; padding: 8px 22px; font-size: 15px; }
-.freewrite-err { font-family: var(--font-ui); font-size: 13px; color: var(--neg); margin: 10px 0 0; min-height: 18px; }
+.freewrite-row { display: flex; gap: 12px; margin-top: 14px; align-items: center; }
+.freewrite-row .btn { min-height: 44px; padding: 9px 24px; font-size: 15px; }
+.freewrite-err { font-family: var(--font-ui); font-size: 13px; color: var(--neg); margin: 12px 0 0; min-height: 18px; }
 
 /* 自书标记与考据折页 */
 .selfmark {

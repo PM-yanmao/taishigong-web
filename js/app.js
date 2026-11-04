@@ -269,12 +269,15 @@ function appFreeWrite(text) {
   if (!node) return;
   if ((cfg.openNodes || []).indexOf(APP.nodeId) < 0) return appFreeError('此页尚不可自书。');
 
-  /* 越界不拒绝、不弹提示，只分类；它是一页内容，不是一次错误 */
   var chk = TSG_Guard.checkInput(text, { nodeId: APP.nodeId, state: APP.state });
   if (!chk.ok) return appFreeError(chk.reason);
-  var over = chk.overreach || null;
+  var hint = chk.hint || null;              // 词表只给提示，不再替模型下结论
   if (APP.freeLeft <= 0) return appFreeError('本局自书已用尽。');
 
+  var online = appOnline();
+  /* 在线：能不能做到，交给模型读制度自行判断；
+   * 离线：没有模型，词表命中才退回预制否定段兜底。 */
+  var over = online ? null : hint;
   var cls = over ? { intent: 'REFUSAL', label: over.label } : TSG_Intent.classify(text);
   var nextOptionId = over ? '' : TSG_Intent.resolveOption(node, APP.state, text, cls.intent);
   if (!over && !nextOptionId) return appFreeError('此页没有可承接的走向，请选一项。');
@@ -284,7 +287,7 @@ function appFreeWrite(text) {
   APP.pendingOptionId = nextOptionId;
   APP.streamText = '';
   APP.streamRetrying = false;
-  var useStream = appOnline() && cfg.stream !== false;
+  var useStream = online && cfg.stream !== false;
   APP.screen = 'pending';
   appRender();
 
@@ -297,7 +300,7 @@ function appFreeWrite(text) {
     text: String(text).trim(),
     intent: cls.intent,
     intentLabel: cls.label,
-    overreach: over ? { id: over.id, label: over.label } : null,
+    hint: hint ? { id: hint.id, label: hint.label } : null,
     nextOptionId: nextOptionId,
     stateBands: appStateBands(),
     recentTexts: APP.recentTexts.slice(-2),
@@ -305,8 +308,10 @@ function appFreeWrite(text) {
   };
 
   var pack = function (reason) {
-    var data = over
-      ? TSG_Compose.buildRefusal({ overreachId: over.id, nodeId: payload.nodeId })
+    /* 离线、或在线失败回退时：词表命中的越界一律走预制否定段，避免被当成正常动作生成 */
+    var o = over || hint;
+    var data = o
+      ? TSG_Compose.buildRefusal({ overreachId: o.id, nodeId: payload.nodeId })
       : TSG_Compose.build({
           text: payload.text,
           intent: cls.intent,
@@ -315,7 +320,7 @@ function appFreeWrite(text) {
           toneSeed: APP.customCount + APP.sessionId.length,
           usedImagery: APP.usedImagery,
         });
-    if (data) appShowGenerated(data, payload, cls, reason, false, over);
+    if (data) appShowGenerated(data, payload, cls, reason, false, o);
   };
 
   if (!appOnline()) return pack('pack');

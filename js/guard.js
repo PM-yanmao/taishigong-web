@@ -19,6 +19,10 @@
     { re: /(武帝|上)[^。]{0,8}(道歉|认错|收回成命)/, msg: '武帝人设不符' },
     { re: /[!?！？]/, msg: '出现感叹号或问句，违反语气规范' },
     { re: /(我司马迁|鄙人|在下)/, msg: '叙述人称错误' },
+    /* 史实硬约束：模型会把越界念头自我合理化写成成功，这几条必须当场拦 */
+    { re: /(逃出|越狱|逃狱|潜逃)[^。]{0,10}(狱|牢|长安|城|门)/, msg: '死囚系狱，不得写成脱逃成功' },
+    { re: /(赎金|援手|救兵)[^。]{0,6}(到了|来了|已至)/, msg: '家贫交绝，不得凭空出现援手' },
+    { re: /(无罪|免死|赦免)[^。]{0,6}(出狱|还家|归乡)/, msg: '判词未改，不得写成无罪释放' },
   ];
 
   function denyWords(text) {
@@ -60,14 +64,16 @@
     return null;
   }
 
-  /** 玩家输入：只查长度与越界分类，不再弹提示、不再出戏。 */
+  /** 玩家输入：只查长度，不再拦。
+   *  越界判定交给生成端——在线由模型读制度自行判断，词表只作 hint 参考；
+   *  离线没有模型时，才退回词表 + 预制段落兜底。 */
   function checkInput(text, ctx) {
     /* 服务端不加载 config.js，故此处默认值必须与 config.js 一致 */
     var cfg = g.TSG_CONFIG || { minChars: 4, maxChars: 40 };
     var t = String(text || '').trim();
     if (t.length < cfg.minChars) return { ok: false, reason: '字数太短，请再书一行。' };
     if (t.length > cfg.maxChars) return { ok: false, reason: '一行足矣，请收束笔墨。' };
-    return { ok: true, overreach: classifyOverreach(t, ctx || {}) };
+    return { ok: true, hint: classifyOverreach(t, ctx || {}) };
   }
 
   /** 生成正文；返回 {ok, violations[]} */
@@ -97,7 +103,10 @@
     if (!o || typeof o !== 'object') return { ok: false, violations: ['返回体不是对象'] };
     var v = [];
     if (typeof o.text !== 'string' || !o.text.trim()) v.push('缺少 text');
-    if (typeof o.nextOptionId !== 'string') v.push('缺少 nextOptionId');
+    /* 判为做不到时模型可能给空串或 null，均视为合法 */
+    if (o.nextOptionId !== undefined && o.nextOptionId !== null && typeof o.nextOptionId !== 'string') {
+      v.push('nextOptionId 类型错误');
+    }
     if (!Array.isArray(o.citation)) v.push('缺少 citation 数组');
     if (!o.selfCheck || typeof o.selfCheck !== 'object') v.push('缺少 selfCheck');
     return { ok: v.length === 0, violations: v };

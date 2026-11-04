@@ -121,6 +121,19 @@ function hudHTML(state) {
   );
 }
 
+/* 起句示例：降低空白恐惧，同时示范「什么算一行能过的输入」 */
+var FREE_SAMPLES = {
+  L1: ['把父亲那卷竹简收进袖中', '先看杜周的颜色再开口', '只说李陵平日为人，不判其罪'],
+  L3: ['问狱吏赎钱要几时纳齐', '把那卷未写完的简要回来', '应下受刑，只求留下一支笔'],
+};
+function samplesHTML(nodeId) {
+  var list = FREE_SAMPLES[nodeId] || [];
+  if (!list.length) return '';
+  return '<div class="freewrite-samples">' + list.map(function (s) {
+    return '<button class="sample" data-action="free-sample" data-text="' + esc(s) + '">' + esc(s) + '</button>';
+  }).join('') + '</div>';
+}
+
 function sceneScreen(node, state, extra) {
   var paras = String(node.text || '')
     .split('\n\n')
@@ -138,7 +151,8 @@ function sceneScreen(node, state, extra) {
         '或，自书一行<span class="freewrite-left">（尚余 ' + left + ' 次）</span></button>' +
         (ex.freeOpen
           ? '<div class="freewrite-body">' +
-            '<p class="freewrite-hint">写你想做的动作或态度，不写结果。例：把父亲那卷竹简收进袖中</p>' +
+            '<p class="freewrite-hint">写你想做的动作或态度，不写结果。越出身份与制度的事也可以写——史官自会写它为何落空。</p>' +
+            samplesHTML(node.id) +
             '<textarea id="free-input" maxlength="' + cfg.maxChars + '" rows="2" placeholder="一行即可……"></textarea>' +
             '<div class="freewrite-row">' +
             '<button class="btn primary" data-action="free-submit">落笔</button>' +

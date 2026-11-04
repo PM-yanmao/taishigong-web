@@ -19,7 +19,9 @@ export function checkEnvelope(data, payload) {
   if (!envelope.ok) v.push(...envelope.violations);
   if (!data || typeof data !== 'object') return v;
 
-  if (data.nextOptionId !== payload.nextOptionId) {
+  /* 模型判为做不到时会把 nextOptionId 置空；由服务端 finalize 统一裁决，不算违规 */
+  const notFeasible = data && (data.feasible === false || data.feasible === 'false');
+  if (!notFeasible && data.nextOptionId !== payload.nextOptionId) {
     v.push('模型擅自改动了 nextOptionId');
   }
   const out = G.checkOutput(data.text || '', payload);
