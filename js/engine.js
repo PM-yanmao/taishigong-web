@@ -28,7 +28,7 @@ const MAX_VALUE = 100;
 const clamp = (v) => Math.min(MAX_VALUE, Math.max(MIN_VALUE, v));
 
 /** 司马迁基线 = 正统路径终值。剧本定稿后由脚本导出覆盖（基线 §7） */
-const ORTHODOX_BASELINE = Object.freeze({ jian: 95, ming: 100, cai: 40, quan: 35 });
+const ORTHODOX_BASELINE = Object.freeze({ jian: 100, ming: 100, cai: 45, quan: 45 });
 
 /* ============================== 分支与结局 ============================== */
 const ROUTES = Object.freeze([
@@ -93,24 +93,27 @@ const galleryCell = (piece) =>
  * 判定只读进入该 route 时的最终数值。
  */
 const RULES = Object.freeze({
+  /* 判定读「本局攒下的标记」：序章的每一次取舍，都要在这里兑现。
+   * truth 直笔 / favor 上意 / companion 交游 / hypocrisy 伪饰 / travel 远行 / evidence 罪证 */
   PUNISH: [
-    { id: 1, test: (s) => s.jian >= 80 && s.cai < 80 }, // 受刑后写完整部《史记》
-    { id: 2, test: () => true, fallback: true },        // 兜底（内部分档）
+    { id: 1, test: (s) => s.jian >= 80 && s.cai < 80 && (s.flags?.truth ?? 0) >= 6 }, // 直笔贯穿，写成全书
+    { id: 2, test: () => true, fallback: true },
   ],
   HIDDEN: [
-    { id: 11, test: (s) => s.quan >= 90 && s.jian >= 70 }, // 谋略与隐忍俱足 → 微言大义
-    { id: 12, test: () => true, fallback: true },          // 隐忍不足 → 事泄败露
+    { id: 11, test: (s) => s.quan >= 80 && (s.flags?.evidence ?? 0) >= 1 }, // 夹层里的罪证留到了最后
+    { id: 12, test: () => true, fallback: true },
   ],
   DIE: [
     { id: 3, test: (s) => s.ming >= 70 },
     { id: 4, test: () => true, fallback: true },
   ],
   REDEEM: [
-    { id: 6, test: (s) => s.ming >= 70 },
+    /* 赎死须先损名节聚财，故阈值单独校准；彻底失节者落「隐姓埋名」 */
+    { id: 6, test: (s) => s.ming >= 45 },
     { id: 5, test: () => true, fallback: true },
   ],
   FLATTER: [
-    { id: 7, test: (s) => s.quan >= 70 && s.ming < 40 },
+    { id: 7, test: (s) => s.quan >= 70 && s.ming < 40 && (s.flags?.favor ?? 0) >= 3 && (s.flags?.hypocrisy ?? 0) < 2 },
     { id: 8, test: () => true, fallback: true },
   ],
   RETIRE: [

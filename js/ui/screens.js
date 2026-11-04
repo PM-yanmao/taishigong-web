@@ -34,6 +34,7 @@ function gateReason(opt) {
   if (g.failTerminal) return '凶多吉少';
   if (g.stat === 'cai') return '家贫，无钱可赎';
   if (g.stat) return '需' + KEYS_CN[g.stat] + ' ≥ ' + g.min;
+  if (g.flag === 'companion') return '无旧识可托';
   return '条件不足';
 }
 
@@ -204,6 +205,13 @@ function endingScreen(result, db) {
     '<p class="gallery-line">图鉴收集 <b>' + owned + '</b> / ' + total +
     '（' + Math.round((owned / total) * 100) + '%）</p>' +
     '<p class="gallery-line dim">人格相似度 <b>' + result.similarity + '</b> / 100　—— 与司马迁四维的接近程度，非收集率</p>' +
+    (function () {
+      var names = { truth: '直笔', favor: '上意', companion: '交游', hypocrisy: '伪饰', travel: '远行', evidence: '罪证' };
+      var f = result.flags || {};
+      var marks = Object.keys(names).filter(function (k) { return (f[k] || 0) > 0; })
+        .map(function (k) { return names[k]; }).join(' · ');
+      return marks ? '<p class="gallery-line dim">本局史迹　' + esc(marks) + '</p>' : '';
+    })() +
     (result.customCount ? '<p class="gallery-line dim">本局自书 <b>' + result.customCount + '</b> 次　—— 自书之笔不计图鉴，排行榜单列</p>' : '') +
     '<div class="row">' +
     '<button class="btn primary" data-action="play-again">再来一局</button>' +

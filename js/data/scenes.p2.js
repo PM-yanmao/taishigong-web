@@ -21,14 +21,14 @@ const SCENES_P2 = {
       '你提笔。手冻得不太听使唤。\n\n' +
       '写到"太史公曰"四个字时，你停了一下。',
     options: [
-      { id: 'A', text: '闭门不出，倾注竹简', effect: { d: { jian: 10, ming: 5 }, piece: 10 }, next: 'A2' },
-      { id: 'B', text: '结交宦官，搜集黑料', effect: { d: { quan: 10, ming: -5 } }, next: 'A2' },
+      { id: 'A', text: '闭门不出，倾注竹简', effect: { d: { jian: 10, ming: 5 }, flags: { truth: 1 }, piece: 10 }, next: 'A2' },
+      { id: 'B', text: '结交宦官，搜集黑料', effect: { d: { quan: 6, ming: -5 }, flags: { companion: 1 } }, next: 'A2' },
       { id: 'C', text: '心灰意冷，借酒浇愁', effect: { d: { jian: -10 } }, next: 'A2' },
       {
         id: 'D',
         text: '表面迎合武帝，暗中收集罪证',
         showIf: { flag: 'hypocrisy', min: 3 },
-        effect: { d: { quan: 15 }, flags: { hypocrisy: 1 }, route: 'HIDDEN' },
+        effect: { d: { quan: 10 }, flags: { hypocrisy: 1, favor: 1 }, route: 'HIDDEN' },
         next: 'H1',
       },
     ],
@@ -47,9 +47,9 @@ const SCENES_P2 = {
       '天亮时，你研墨。墨很稠，磨了很久才化开。\n\n' +
       '案上的竹简摊着，最后一行空着。',
     options: [
-      { id: 'A', text: '秉笔直书，不低头', effect: { d: { ming: 10, quan: -5 }, piece: 11 }, next: 'A3' },
-      { id: 'B', text: '表面删改，暗用春秋笔法', effect: { d: { quan: 15 }, flags: { hypocrisy: 1 } }, next: 'A3' },
-      { id: 'C', text: '彻底妥协，只写千古一帝', effect: { d: { ming: -15, cai: 10 } }, next: 'A3' },
+      { id: 'A', text: '秉笔直书，不低头', effect: { d: { ming: 10, quan: -5 }, flags: { truth: 1 }, piece: 11 }, next: 'A3' },
+      { id: 'B', text: '表面删改，暗用春秋笔法', effect: { d: { quan: 8 }, flags: { hypocrisy: 1 } }, next: 'A3' },
+      { id: 'C', text: '彻底妥协，只写千古一帝', effect: { d: { ming: -15, cai: 10 }, flags: { favor: 1 } }, next: 'A3' },
     ],
   },
 
@@ -66,8 +66,8 @@ const SCENES_P2 = {
       '你想起他当年在边关时，也曾这样写信，写完便烧掉。\n\n' +
       '你提笔。笔尖悬在简上，很久没有落下。',
     options: [
-      { id: 'A', text: '不顾安危，回信倾吐悲愤', effect: { d: { ming: 10, jian: 10 }, piece: 12 }, next: '__END__' },
-      { id: 'B', text: '明哲保身，烧信假装不知', effect: { d: { quan: 5, ming: -10 } }, next: '__END__' },
+      { id: 'A', text: '不顾安危，回信倾吐悲愤', effect: { d: { ming: 10, jian: 10 }, flags: { truth: 1 }, piece: 12 }, next: '__END__' },
+      { id: 'B', text: '明哲保身，烧信假装不知', effect: { d: { quan: 5, ming: -10 }, flags: { hypocrisy: 1 } }, next: '__END__' },
       {
         id: 'C',
         text: '了此残生',
@@ -92,7 +92,7 @@ const SCENES_P2 = {
       '夜里，你把白日听见的每一句话，记在另一卷竹简上。不写姓名，只写日子与官职。\n\n' +
       '那卷竹简越写越厚。',
     options: [
-      { id: 'A', text: '忍辱俯首，学做佞臣', effect: { d: { quan: 10 } }, next: 'H2' },
+      { id: 'A', text: '忍辱俯首，学做佞臣', effect: { d: { quan: 6 }, flags: { favor: 1 } }, next: 'H2' },
       { id: 'B', text: '托病避祸，保持距离', effect: { d: { jian: 5 } }, next: 'H2' },
     ],
   },
@@ -110,8 +110,8 @@ const SCENES_P2 = {
       '新帝登基那年，你把夹层剖开。\n\n' +
       '外头那一层，没人再看。',
     options: [
-      { id: 'A', text: '继续搜集，静待新帝登基', effect: { d: { quan: 15 } }, next: '__END__' },
-      { id: 'B', text: '烧毁罪证，只求全身', effect: { d: { ming: 5 } }, next: '__END__' },
+      { id: 'A', text: '继续搜集，静待新帝登基', effect: { d: { quan: 10 }, flags: { evidence: 1, truth: 1 } }, next: '__END__' },
+      { id: 'B', text: '烧毁罪证，只求全身', effect: { d: { ming: 5 }, flags: { hypocrisy: 1 } }, next: '__END__' },
     ],
   },
 
@@ -129,8 +129,8 @@ const SCENES_P2 = {
       '客舍里只有一盏油灯。你听见隔壁有人在哭，哭声压得很低，像是怕被人听见。\n\n' +
       '你坐到半夜，然后摊开了简。',
     options: [
-      { id: 'A', text: '暗中联络清流官员弹劾', effect: { d: { ming: 10 } }, next: 'B2' },
-      { id: 'B', text: '只把此事录入民间地理志', effect: { d: { jian: 10 }, flags: { travel: 1 } }, next: 'B2' },
+      { id: 'A', text: '暗中联络清流官员弹劾', effect: { d: { ming: 12 }, flags: { companion: 1, truth: 1 } }, next: 'B2' },
+      { id: 'B', text: '只把此事录入民间地理志', effect: { d: { jian: 10 }, flags: { travel: 1, truth: 1 } }, next: 'B2' },
       { id: 'C', text: '视而不见', effect: { d: { ming: -5 } }, next: 'B2' },
     ],
   },
@@ -148,8 +148,8 @@ const SCENES_P2 = {
       '他笑，从怀里掏出一卷自己的简：我这一路，记了三十七个人的名字。都是回不去长安的。\n\n' +
       '那夜你们把两卷简摊在地上，一段一段地读。江水很响，读着读着，他睡着了。',
     options: [
-      { id: 'A', text: '痛饮，共编一部民间史记', effect: { d: { ming: 10, jian: 5 } }, next: '__END__' },
-      { id: 'B', text: '感叹造化弄人，罢酒而别', effect: { d: { jian: 5 } }, next: '__END__' },
+      { id: 'A', text: '痛饮，共编一部民间史记', effect: { d: { ming: 10, jian: 5 }, flags: { companion: 1, travel: 1, truth: 1 } }, next: '__END__' },
+      { id: 'B', text: '感叹造化弄人，罢酒而别', effect: { d: { jian: 5 }, flags: { travel: 1 } }, next: '__END__' },
     ],
   },
 
@@ -167,8 +167,8 @@ const SCENES_P2 = {
       '五百金，够你在长安买一座宅院。\n\n' +
       '你看着那封帛书，看了很久。帛书的一角，被人捏得发皱。',
     options: [
-      { id: 'A', text: '照单全收，颠倒黑白', effect: { d: { cai: 15, quan: 10, ming: -10 } }, next: 'C2' },
-      { id: 'B', text: '严词拒绝，不玷污史官之位', effect: { d: { ming: 10 } }, next: 'C2' },
+      { id: 'A', text: '收下五百金，改那一卷', effect: { d: { cai: 15, quan: 6, ming: -10 }, flags: { favor: 1, companion: 1 } }, next: 'C2' },
+      { id: 'B', text: '严词拒绝，不玷污史官之位', effect: { d: { ming: 12 }, flags: { truth: 1 } }, next: 'C2' },
     ],
   },
 
@@ -184,8 +184,8 @@ const SCENES_P2 = {
       '烛火照见竹简边缘，那里还留着你小时候用刀刻的一道痕。\n\n' +
       '窗外的更鼓敲了三下。',
     options: [
-      { id: 'A', text: '痛哭流涕，暗留一份真实副本', effect: { d: { ming: 10 } }, next: '__END__' },
-      { id: 'B', text: '冷笑，付之一炬，继续富贵梦', effect: { d: { quan: 10, ming: -15 } }, next: '__END__' },
+      { id: 'A', text: '痛哭流涕，暗留一份真实副本', effect: { d: { ming: 12 }, flags: { truth: 1 } }, next: '__END__' },
+      { id: 'B', text: '冷笑，付之一炬，继续富贵梦', effect: { d: { quan: 6, ming: -15 }, flags: { favor: 1 } }, next: '__END__' },
     ],
   },
 

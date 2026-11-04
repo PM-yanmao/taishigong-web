@@ -37,9 +37,9 @@ const SCENES_P1 = {
       '回程困于鄱、薛、彭城，盘缠将尽。你在梁、楚之间遇见饥民，遇见豪强，遇见一个把官印挂在腰间、却不知律令为何物的县丞。\n\n' +
       '你把它们都记了下来。',
     options: [
-      { id: 'A', text: '深入乡野，问俗访古', effect: { d: { jian: 10 }, flags: { travel: 1 }, piece: 1 }, next: 'P2' },
-      { id: 'B', text: '走马观花，只记郡县沿革', effect: { d: { ming: 5 }, flags: { travel: 1 } }, next: 'P2' },
-      { id: 'C', text: '沿途结交豪强，收受馈赠', effect: { d: { cai: 10, quan: 5 } }, next: 'P2' },
+      { id: 'A', text: '深入乡野，问俗访古', effect: { d: { jian: 10 }, flags: { travel: 1, truth: 1 }, piece: 1 }, next: 'P2' },
+      { id: 'B', text: '走马观花，只记郡县沿革', effect: { d: { ming: 5, jian: 5 }, flags: { travel: 1 } }, next: 'P2' },
+      { id: 'C', text: '沿途结交豪强，收下帛金', effect: { d: { cai: 10, quan: 5 }, flags: { companion: 1 } }, next: 'P2' },
     ],
   },
 
@@ -59,8 +59,8 @@ const SCENES_P1 = {
       '你跪着，一句话也说不出来。\n\n' +
       '那一夜他去了。你在他枕边发现一卷未写完的竹简，最后一行的墨还没有干。',
     options: [
-      { id: 'A', text: '跪受遗命，以史为业', effect: { d: { jian: 10, ming: 10 }, piece: 2 }, next: 'P3' },
-      { id: 'B', text: '心知此志难成，含糊应下', effect: { d: { quan: 10 }, flags: { hypocrisy: 1 } }, next: 'P3' },
+      { id: 'A', text: '跪受遗命，以史为业', effect: { d: { jian: 10, ming: 10 }, flags: { truth: 1 }, piece: 2 }, next: 'P3' },
+      { id: 'B', text: '心知此志难成，含糊应下', effect: { d: { quan: 10, ming: 3 }, flags: { hypocrisy: 1 } }, next: 'P3' },
       { id: 'C', text: '直言力不能及，请父另托', effect: { d: { jian: -10, ming: -5 } }, next: 'P3' },
     ],
   },
@@ -78,9 +78,9 @@ const SCENES_P1 = {
       '你查过了。那人的祖父，是个屠户。\n\n' +
       '窗外落雪。你把帛书推回去，手指压在"高祖"两个字上。',
     options: [
-      { id: 'A', text: '严词拒绝，如实掌籍', effect: { d: { ming: 10, cai: -5 }, piece: 3 }, next: 'P4' },
-      { id: 'B', text: '收受馈赠，替他润色', effect: { d: { cai: 15, ming: -10 } }, next: 'P4' },
-      { id: 'C', text: '假装糊涂，两头逢源', effect: { d: { quan: 10 }, flags: { hypocrisy: 1 } }, next: 'P4' },
+      { id: 'A', text: '严词拒绝，如实掌籍', effect: { d: { ming: 10, cai: -5 }, flags: { truth: 1 }, piece: 3 }, next: 'P4' },
+      { id: 'B', text: '收下润笔，替他补一句', effect: { d: { cai: 15, ming: -10 }, flags: { companion: 1 } }, next: 'P4' },
+      { id: 'C', text: '假装糊涂，两头逢源', effect: { d: { quan: 10 }, flags: { hypocrisy: 1, companion: 1 } }, next: 'P4' },
     ],
   },
 
@@ -97,9 +97,9 @@ const SCENES_P1 = {
       '你想起路边那个老人。他的草鞋磨穿了，脚趾露在外面，沾着泥。\n\n' +
       '你提笔，先写下日子。',
     options: [
-      { id: 'A', text: '直笔记录，暗陈奢靡', effect: { d: { ming: 10, jian: 5 }, piece: 4 }, next: 'P5' },
-      { id: 'B', text: '粉饰太平，歌功颂德', effect: { d: { cai: 15, quan: 5, ming: -10 } }, next: 'P5' },
-      { id: 'C', text: '缄默不语，只记仪轨', effect: { d: { jian: 5, quan: 5 } }, next: 'P5' },
+      { id: 'A', text: '直笔记录，暗陈奢靡', effect: { d: { ming: 10, jian: 5 }, flags: { truth: 1 }, piece: 4 }, next: 'P5' },
+      { id: 'B', text: '只记祥瑞，删去路边老人', effect: { d: { cai: 15, quan: 5, ming: -10 }, flags: { favor: 1 } }, next: 'P5' },
+      { id: 'C', text: '缄默不语，只记仪轨', effect: { d: { jian: 5, quan: 5 }, flags: { hypocrisy: 1 } }, next: 'P5' },
     ],
   },
 
@@ -116,9 +116,9 @@ const SCENES_P1 = {
       '你没有答。你想起杜周案上的卷宗，厚厚一叠，都是用刑具压出来的口供。也想起父亲那卷竹简，还压在案上，只有开头。\n\n' +
       '灯下，你把白天记的几行字誊清，又磨了墨。',
     options: [
-      { id: 'A', text: '与清流往来，不结私党', effect: { d: { ming: 10, jian: 5 }, piece: 5 }, next: 'P6' },
-      { id: 'B', text: '结交酷吏，打探内廷', effect: { d: { quan: 15, ming: -15 }, flags: { hypocrisy: 1 } }, next: 'P6' },
-      { id: 'C', text: '两面逢源，各留余地', effect: { d: { quan: 10, ming: -5 }, flags: { hypocrisy: 1 } }, next: 'P6' },
+      { id: 'A', text: '与清流往来，不结私党', effect: { d: { ming: 10, jian: 5 }, flags: { truth: 1 }, piece: 5 }, next: 'P6' },
+      { id: 'B', text: '登杜周之门，问内廷事', effect: { d: { quan: 10, ming: -15 }, flags: { hypocrisy: 1, companion: 1 } }, next: 'P6' },
+      { id: 'C', text: '两面逢源，各留余地', effect: { d: { quan: 8, ming: -5 }, flags: { hypocrisy: 1, companion: 1 } }, next: 'P6' },
     ],
   },
 
@@ -135,9 +135,10 @@ const SCENES_P1 = {
       '次日校场点兵，五千人。武帝在城楼上看。你站在人群里，看见李陵回头望了一眼长安。\n\n' +
       '那一眼很短。',
     options: [
-      { id: 'A', text: '断言其孤军必败，当预作后路', effect: { d: { jian: 10, quan: 5 } }, next: 'L1' },
-      { id: 'B', text: '随众称贺，赞其必封侯', effect: { d: { ming: -5, cai: 5 } }, next: 'L1' },
-      { id: 'C', text: '默察其为人，心许之国士', effect: { d: { ming: 10, jian: 5 }, piece: 6 }, next: 'L1' },
+      { id: 'A', text: '断言孤军必败，先留后路', effect: { d: { jian: 10, quan: 5 } }, next: 'L1' },
+      { id: 'B', text: '随众称贺，说他必封侯', effect: { d: { ming: -5, cai: 5 }, flags: { favor: 1 } }, next: 'L1' },
+      { id: 'C', text: '默察其为人，心许之国士', effect: { d: { ming: 10, jian: 5 }, flags: { truth: 1 }, piece: 6 }, next: 'L1' },
+      { id: 'E', text: '把那一眼记进简里', showIf: { flag: 'truth', min: 4 }, effect: { d: { jian: 3 }, flags: { truth: 1 } }, next: 'L1' },
       {
         id: 'D',
         text: '当众讥讽武帝用人（凶多吉少）',
@@ -162,9 +163,9 @@ const SCENES_P1 = {
       '"太史令，你说。"\n\n' +
       '你听见自己的心跳。父亲那卷竹简还在案上。写，或不写，只在此刻。',
     options: [
-      { id: 'A', text: '出言辩护', effect: { d: { ming: 10, jian: 5 }, piece: 7, route: 'PUNISH' }, next: 'L2A' },
-      { id: 'B', text: '沉默不语，称病不朝', effect: { d: { quan: 5 }, route: 'RETIRE' }, next: 'L2B' },
-      { id: 'C', text: '落井下石，附和武帝', effect: { d: { quan: 10, ming: -10 }, route: 'FLATTER' }, next: 'L2C' },
+      { id: 'A', text: '出言辩护', effect: { d: { ming: 10, jian: 5 }, flags: { truth: 1 }, piece: 7, route: 'PUNISH' }, next: 'L2A' },
+      { id: 'B', text: '沉默不语，称病不朝', effect: { d: { quan: 5 }, flags: { travel: 1 }, route: 'RETIRE' }, next: 'L2B' },
+      { id: 'C', text: '附和满殿，说李陵该族', effect: { d: { quan: 10, ming: -10 }, flags: { favor: 1 }, route: 'FLATTER' }, next: 'L2C' },
     ],
   },
 
@@ -180,14 +181,14 @@ const SCENES_P1 = {
       '堂下有人轻轻咳了一声。那是你曾托过的旧识。\n\n' +
       '堂上拍案：囚徒，速言。',
     options: [
-      { id: 'A', text: '伏法认罪，一言不发', effect: { piece: 8 }, next: 'L3' },
+      { id: 'A', text: '伏法认罪，一言不发', effect: { flags: { truth: 1 }, piece: 8 }, next: 'L3' },
       {
         id: 'B',
         text: '当庭指斥酷吏',
-        effect: { d: { ming: 10 } },
+        effect: { d: { ming: 15 }, flags: { truth: 1 } },
         gate: {
           stat: 'ming',
-          min: 60,
+          min: 55,
           selectableWhenFailing: true,
           failTerminal: { endingId: 13, cause: 'T2' },
         },
@@ -195,9 +196,9 @@ const SCENES_P1 = {
       },
       {
         id: 'C',
-        text: '托人打点廷尉',
-        effect: { d: { quan: 10 } },
-        gate: { stat: 'quan', min: 50 },
+        text: '托旧识打点廷尉',
+        effect: { d: { quan: 8 }, flags: { companion: 1 } },
+        gate: { flag: 'companion', min: 1 },
         next: 'L3',
       },
     ],
@@ -215,8 +216,8 @@ const SCENES_P1 = {
       '你收拾书箧时，同僚都避开了。只有一个小吏，帮你把最后一捆竹简搬上车。\n\n' +
       '出了城门，你回头看了一眼长安的宫墙。天很高。',
     options: [
-      { id: 'A', text: '上疏自陈，请归乡修史', effect: { d: { ming: 10, jian: 5 } }, next: 'B1' },
-      { id: 'B', text: '闭门不出，静待风波', effect: { d: { jian: 10 } }, next: 'B1' },
+      { id: 'A', text: '上疏自陈，请归乡修史', effect: { d: { ming: 10, jian: 5 }, flags: { truth: 1, travel: 1 } }, next: 'B1' },
+      { id: 'B', text: '闭门不出，静待风波', effect: { d: { jian: 10 }, flags: { travel: 1 } }, next: 'B1' },
     ],
   },
 
@@ -232,8 +233,8 @@ const SCENES_P1 = {
       '你笑着受贺。\n\n' +
       '夜里你点灯，看父亲那卷竹简。看了很久，又把它收进箱底，压上一块石头。',
     options: [
-      { id: 'A', text: '受赏谢恩，从此迎合', effect: { d: { cai: 15, ming: -10, quan: 5 } }, next: 'C1' },
-      { id: 'B', text: '表面谢恩，内心不安', effect: { d: { ming: 5 }, flags: { hypocrisy: 1 } }, next: 'C1' },
+      { id: 'A', text: '受赏谢恩，从此迎合', effect: { d: { cai: 15, ming: -10, quan: 5 }, flags: { favor: 1, companion: 1 } }, next: 'C1' },
+      { id: 'B', text: '表面谢恩，内心不安', effect: { d: { ming: 5 }, flags: { hypocrisy: 1, favor: 1 } }, next: 'C1' },
     ],
   },
 
@@ -250,8 +251,8 @@ const SCENES_P1 = {
       '你想起父亲。想起那卷竹简。想起校场上，五千人里那一次回头。\n\n' +
       '灯灭了。',
     options: [
-      { id: 'X1', text: '接受宫刑，苟活写史', effect: { d: { jian: 10 }, piece: 9 }, next: 'A1' },
-      { id: 'X2', text: '拒绝受刑，引颈就戮', effect: { d: { ming: 10 }, route: 'DIE' }, next: 'D1' },
+      { id: 'X1', text: '接受宫刑，苟活写史', effect: { d: { jian: 10 }, flags: { truth: 1 }, piece: 9 }, next: 'A1' },
+      { id: 'X2', text: '拒绝受刑，引颈就戮', effect: { d: { ming: 10 }, flags: { truth: 1 }, route: 'DIE' }, next: 'D1' },
       {
         id: 'X3',
         text: '变卖家产，纳钱赎死',
