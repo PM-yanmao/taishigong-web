@@ -4,7 +4,8 @@
   "private": true,
   "description": "Taishigong interactive narrative - static site + optional local generation server. Server files use .mjs (ESM); browser modules stay classic scripts.",
   "scripts": {
-    "start": "node server/index.mjs"
+    "start": "node server/start.mjs",
+    "check": "node server/start.mjs --check"
   },
   "engines": {
     "node": ">=18"
