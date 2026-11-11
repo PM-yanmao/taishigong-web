@@ -27,6 +27,7 @@ var APP = {
   recentTexts: [],
   generatedPage: null,
   pendingOptionId: null,
+  pendingCandidates: [],
   streamText: '',
   streamRetrying: false,
   leaderOnlyOrthodox: false,
@@ -88,6 +89,18 @@ function appOnline() {
   return !!(APP.netStatus.online && APP.netStatus.hasKey);
 }
 
+/** 当前模式下可自书的节点：在线 6 页；离线只有 L1/L3 有预制素材 */
+function appFreeNodes() {
+  var cfg = (typeof TSG_CONFIG !== 'undefined' && TSG_CONFIG) || {};
+  var open = cfg.openNodes || ['L1', 'L3'];
+  if (appOnline()) return open;
+  var off = cfg.offlineNodes || ['L1', 'L3'];
+  return open.filter(function (id) { return off.indexOf(id) >= 0; });
+}
+function appFreeAvailable(nodeId) {
+  return appFreeNodes().indexOf(nodeId) >= 0;
+}
+
 function appRender() {
   var host = document.getElementById('app');
   if (!host) return;
@@ -102,6 +115,8 @@ function appRender() {
           html = sceneScreen(SCENES[APP.nodeId], APP.state, {
             freeLeft: APP.freeLeft,
             freeOpen: APP.freeOpen,
+            canFree: appFreeAvailable(APP.nodeId),
+            freeTotal: ((typeof TSG_CONFIG !== 'undefined' && TSG_CONFIG.freeLimit) || 5),
           });
         } else {
           APP.screen = 'start';
@@ -185,6 +200,7 @@ function appResetFree() {
   APP.recentTexts = [];
   APP.generatedPage = null;
   APP.pendingOptionId = null;
+  APP.pendingCandidates = [];
   APP.streamText = '';
   APP.streamRetrying = false;
   APP.busy = false;
@@ -313,24 +329,33 @@ function appFreeWrite(text) {
   var cfg = (typeof TSG_CONFIG !== 'undefined' && TSG_CONFIG) || {};
   var node = SCENES[APP.nodeId];
   if (!node) return;
-  if ((cfg.openNodes || []).indexOf(APP.nodeId) < 0) return appFreeError('此页尚不可自书。');
+  var online = appOnline();
+  if (!appFreeAvailable(APP.nodeId)) {
+    return appFreeError(online
+      ? '此页还不开放自书：可自书的是朝议、议罪、生死抉择、世态炎凉、武帝审查、任安之信六页。'
+      : '离线模式的自书只在朝议与生死抉择两页开放；联网后可在更多留白处自书。');
+  }
 
   var chk = TSG_Guard.checkInput(text, { nodeId: APP.nodeId, state: APP.state });
   if (!chk.ok) return appFreeError(chk.reason);
   var hint = chk.hint || null;              // 词表只给提示，不再替模型下结论
   if (APP.freeLeft <= 0) return appFreeError('本局自书已用尽。');
 
-  var online = appOnline();
   /* 在线：能不能做到，交给模型读制度自行判断；
    * 离线：没有模型，词表命中才退回预制否定段兜底。 */
   var over = online ? null : hint;
   var cls = over ? { intent: 'REFUSAL', label: over.label } : TSG_Intent.classify(text);
-  var nextOptionId = over ? '' : TSG_Intent.resolveOption(node, APP.state, text, cls.matched === false ? '' : cls.intent);
+  /* 先算出这一行可落在哪几条既有边上：不止一条时，把落点选择权交给玩家 */
+  var cands = over ? [] : (TSG_Intent.candidates
+    ? TSG_Intent.candidates(node, APP.state, text, cls.matched === false ? '' : cls.intent, 3)
+    : []);
+  var nextOptionId = over ? '' : (cands.length ? cands[0].id : '');
   if (!over && !nextOptionId) return appFreeError('此页没有可承接的走向，请直接选一项。');
 
   APP.busy = true;
   APP.freeOpen = false;
   APP.pendingOptionId = nextOptionId;
+  APP.pendingCandidates = cands;
   APP.streamText = '';
   APP.streamRetrying = false;
   var useStream = online && cfg.stream !== false;
@@ -418,6 +443,7 @@ function appUpdateStream(text) {
 function appShowGenerated(data, payload, cls, fallbackReason, alreadyStreamed, over) {
   var isOver = !!over || !!data.overreach;
   var node = SCENES[APP.nodeId] || {};
+  var cfg = (typeof TSG_CONFIG !== 'undefined' && TSG_CONFIG) || {};
   APP.generatedPage = {
     noUnroll: !!alreadyStreamed,
     overreach: isOver,
@@ -429,12 +455,19 @@ function appShowGenerated(data, payload, cls, fallbackReason, alreadyStreamed, o
     nodeTitle: node.title,
     era: node.era,
     art: (typeof bgPath === 'function' ? bgPath(node) : ''),
+    /* 自书反馈：史官怎么读这一行、能不能做到、落点在哪几条既有路上 */
+    intentLabel: cls && cls.label ? cls.label : '',
+    feasible: !isOver,
+    overreachText: isOver ? String(data.overreach || (over && over.label) || '') : '',
+    candidates: isOver ? [] : (APP.pendingCandidates || []),
+    freeLeft: Math.max(0, APP.freeLeft - 1),
+    freeTotal: cfg.freeLimit || 5,
   };
   APP.recentTexts.push(String(data.text || '').slice(0, 260));
   if (APP.recentTexts.length > 2) APP.recentTexts.shift();
   if (data.imagery) APP.usedImagery.push(data.imagery);
-  /* 三次限制对所有自书一视同仁，越界也不例外；越界只不自动推进剧情 */
-  if (isOver) APP.pendingOptionId = null;
+  /* 五次限制对所有自书一视同仁，越界也不例外；越界只不自动推进剧情 */
+  if (isOver) { APP.pendingOptionId = null; APP.pendingCandidates = []; }
   APP.customHistory.push({
     nodeId: payload.nodeId, text: payload.text, intent: cls.intent,
     source: APP.generatedPage.source, fallback: fallbackReason || null,
@@ -449,9 +482,10 @@ function appShowGenerated(data, payload, cls, fallbackReason, alreadyStreamed, o
   appRender();
 }
 
-function appGeneratedContinue() {
-  var opt = APP.pendingOptionId;
+function appGeneratedContinue(pickedOpt) {
+  var opt = pickedOpt || APP.pendingOptionId;
   APP.pendingOptionId = null;
+  APP.pendingCandidates = [];
   APP.generatedPage = null;
   APP.screen = 'scene';
   /* 自书自动承接既有选项：推进分支与数值，但这一笔不点亮图鉴 */
@@ -529,6 +563,8 @@ function appClick(e) {
     }
     case 'generated-continue':
       return appGeneratedContinue();
+    case 'pick-edge':
+      return appGeneratedContinue(el.getAttribute('data-opt'));
     case 'go-settings':
       APP.screen = 'settings';
       return appRender();

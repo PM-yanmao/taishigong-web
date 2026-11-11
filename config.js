@@ -9,17 +9,20 @@
     saved = (g.sessionStorage && g.sessionStorage.getItem('tsg:apiBase')) || '';
     token = (g.sessionStorage && g.sessionStorage.getItem('tsg:token')) || '';
   } catch (e) {}
+  /* 自书开放范围与字数由 js/data/freewrite.js 单点定义（服务端读同一份） */
+  var F = g.TSG_FREEWRITE || {};
   g.TSG_CONFIG = {
     apiBase: saved,
     token: token,
     port: 8787,
-    freeLimit: 3,
-    minChars: 4,
-    maxChars: 40,
+    freeLimit: F.perRun || 3,
+    minChars: F.minChars || 4,
+    maxChars: F.maxChars || 40,
+    openNodes: F.openNodes || ['L1', 'L3'],
+    offlineNodes: F.offlineNodes || ['L1', 'L3'],
     timeoutMs: 15000,
     streamTimeoutMs: 32000,
     stream: true,
-    openNodes: ['L1', 'L3'],
     statusTimeoutMs: 1800,
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

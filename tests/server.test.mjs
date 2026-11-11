@@ -11,6 +11,7 @@ import assert from 'node:assert/strict';
 import {
   ANCHORS,
   OVERREACH,
+  MAX_CHARS,
   checkInput,
   checkEnvelope,
   normalizeCitations,
@@ -52,17 +53,18 @@ const toHost = (value) => JSON.parse(JSON.stringify(value));
 
 /* ------------------------------------------------------------ checkInput */
 
-test('checkInput：拒绝过短/过长，边界 4 与 40 字符可接受', () => {
+test('checkInput：拒绝过短/过长，边界按 freewrite.maxChars 生效', () => {
   assert.equal(checkInput('').ok, false);
   assert.match(checkInput('').reason, /字数太短/);
   assert.equal(checkInput('一二三').ok, false);
   assert.match(checkInput('一二三').reason, /字数太短/);
   assert.equal(checkInput('  一二三  ').ok, false, '首尾空白应先 trim 再计长');
 
+  assert.equal(MAX_CHARS, 60, '自书上限来自 js/data/freewrite.js');
   assert.equal(checkInput('一二三四').ok, true);
-  assert.equal(checkInput('你'.repeat(40)).ok, true);
-  assert.equal(checkInput('你'.repeat(41)).ok, false);
-  assert.match(checkInput('你'.repeat(41)).reason, /一行足矣/);
+  assert.equal(checkInput('你'.repeat(MAX_CHARS)).ok, true);
+  assert.equal(checkInput('你'.repeat(MAX_CHARS + 1)).ok, false);
+  assert.match(checkInput('你'.repeat(MAX_CHARS + 1)).reason, /一行足矣/);
 
   // 非法输入不外抛异常
   assert.equal(checkInput(null).ok, false);
@@ -285,12 +287,12 @@ test('服务端与前端复用同一份校验规则（防漂移）', () => {
   assert.deepEqual(OVERREACH.rules.map((r) => r.id), frontend.overreachRules.map((r) => r.id));
   assert.deepEqual(toHost(ANCHORS.quotations), frontend.anchors.quotations);
 
-  // 长度规则一致（服务端不加载 config.js，默认值必须与前端一致）
+  // 长度规则一致（前后端都从 js/data/freewrite.js 读取）
   assert.equal(frontend.globals.TSG_CONFIG.minChars, 4);
-  assert.equal(frontend.globals.TSG_CONFIG.maxChars, 40);
+  assert.equal(frontend.globals.TSG_CONFIG.maxChars, MAX_CHARS);
   // 前端结果来自 VM realm，先 JSON 归一化再比较
   const fromFrontend = (text) => JSON.parse(JSON.stringify(frontend.guard.checkInput(text, {})));
-  for (const text of ['一二三', '一二三四', '你'.repeat(40), '你'.repeat(41), '我带兵造反', '我纳钱赎死']) {
+  for (const text of ['一二三', '一二三四', '你'.repeat(MAX_CHARS - 1), '你'.repeat(MAX_CHARS), '你'.repeat(MAX_CHARS + 1), '我带兵造反', '我纳钱赎死']) {
     assert.deepEqual(checkInput(text), fromFrontend(text), `前后端 checkInput 结果不一致: ${text}`);
   }
 });

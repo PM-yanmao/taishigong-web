@@ -6,9 +6,10 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ANCHORS, OVERREACH, checkEnvelope, checkInput, normalizeCitations } from './guard.mjs';
+import { ANCHORS, OVERREACH, FREEWRITE, MAX_CHARS, checkEnvelope, checkInput, normalizeCitations } from './guard.mjs';
 import { buildSystem, buildUser, buildRetryNote } from './prompt.mjs';
 import { getSession, record, logFallback } from './session.mjs';
+import { sceneMeta, optionIds } from './scenes.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..');
@@ -48,15 +49,16 @@ const CFG = {
   rateLimit: Math.floor(num(process.env.TSG_RATE_LIMIT, 30)),
   maxBody: 65536,
   logsOff: /^(0|off|false|no)$/i.test(String(process.env.TSG_LOG || fileEnv.TSG_LOG || '')),
-  version: '1.1.0',
+  version: FREEWRITE.version || '1.2.0',
 };
 
-/* 服务端权威接受的自书节点与本节点可选边（与 js/data/scenes.*.js 保持一致） */
-const FREE_NODES = Object.freeze({
-  L1: ['A', 'B', 'C'],
-  L3: ['X1', 'X2', 'X3'],
-});
 const isLoopback = (h) => h === '127.0.0.1' || h === 'localhost' || h === '::1';
+
+/* 服务端权威接受的自书节点与本节点可选边：由 js/data/freewrite.js + 剧本数据推导，
+ * 不再手写白名单，避免三份数据漂移。 */
+const FREE_NODES = Object.freeze(Object.fromEntries(
+  (FREEWRITE.openNodes || []).map((id) => [id, optionIds(id)])
+));
 
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
@@ -128,10 +130,10 @@ function readBody(req, max = CFG.maxBody) {
 function checkPayload(p) {
   if (!p || typeof p !== 'object' || Array.isArray(p)) return 'bad_body';
   const opts = FREE_NODES[p.nodeId];
-  if (!opts) return 'bad_node';
+  if (!opts || !sceneMeta(p.nodeId)) return 'bad_node';
   if (!opts.includes(String(p.nextOptionId || ''))) return 'bad_option';
   if (typeof p.text !== 'string' || !p.text.trim()) return 'bad_text';
-  if (p.text.length > 200) return 'text_too_long';
+  if (p.text.length > MAX_CHARS) return 'text_too_long';
   return null;
 }
 function authorized(req) {
@@ -219,13 +221,22 @@ async function callModel(messages) {
 /* ---------- 提示词准备：流式 / 非流式共用，避免两份规则漂移 ---------- */
 function preparePrompt(p) {
   const session = getSession(p.sessionId);
+  const meta = sceneMeta(p.nodeId) || {};
+  /* 场景原文、标题、年代一律取服务端剧本数据；客户端传来的同名字段不采用 */
   const facts = ANCHORS.nodeFacts[p.nodeId] || null;
-  /* 可行性判定交给模型；前端传来的 hint 只作为参考提示写进 user 消息 */
   const system = buildSystem(ANCHORS, facts);
+  /* 前情与已用意象仍由客户端带（跨刷新续写用），但只收短文本，降低注入面 */
+  const clip = (arr, n, max) => (Array.isArray(arr) ? arr : [])
+    .slice(-n).map((s) => String(s == null ? '' : s).replace(/[\u0000-\u001f]/g, ' ').slice(0, max)).filter(Boolean);
+  const recent = clip(p.recentTexts, 2, 260);
+  const imagery = clip(p.usedImagery, 6, 8);
   const baseUser = buildUser({
     ...p,
-    recentTexts: p.recentTexts && p.recentTexts.length ? p.recentTexts : session.recentTexts,
-    usedImagery: p.usedImagery && p.usedImagery.length ? p.usedImagery : session.usedImagery,
+    nodeTitle: meta.title || '',
+    era: meta.era || '',
+    sceneText: meta.text || '',
+    recentTexts: recent.length ? recent : session.recentTexts,
+    usedImagery: imagery.length ? imagery : session.usedImagery,
   }, session);
   return { messages: [{ role: 'system', content: system }, { role: 'user', content: baseUser }] };
 }
@@ -458,6 +469,7 @@ async function route(req, res) {
     return json(req, res, 200, {
       ok: true, model: CFG.model, hasKey: !!CFG.apiKey, hasToken: !!CFG.token,
       anchors: ANCHORS.version, nodeVersion: CFG.version,
+      freeNodes: FREEWRITE.openNodes || [], freeLimit: FREEWRITE.perRun || 5, maxChars: MAX_CHARS,
     });
   }
   if (u.pathname === '/api/generate-stream' && req.method === 'POST') {
@@ -510,6 +522,7 @@ server.listen(CFG.port, CFG.host, () => {
   console.log('  打开  http://localhost:' + CFG.port + '   监听 ' + CFG.host);
   console.log('  接口  ' + (CFG.apiKey ? '已配置 Key（在线生成）' : '未配置 Key（自动走离线剧本包）'));
   console.log('  模型  ' + CFG.model + '   锚点库 v' + ANCHORS.version + '   服务 v' + CFG.version);
+  console.log('  自书  ' + (FREEWRITE.openNodes || []).join('/') + '（每局 ' + (FREEWRITE.perRun || 5) + ' 笔，一行 ≤ ' + MAX_CHARS + ' 字）');
   console.log('  口令  ' + (CFG.token ? '已启用（X-TSG-Token）' : '未启用（仅建议本机演示）'));
   console.log('  日志  ' + (CFG.logsOff ? '已关闭（TSG_LOG=off）' : 'logs/*.jsonl（教师课后抽查）'));
   if (!isLoopback(CFG.host)) {

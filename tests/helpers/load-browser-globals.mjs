@@ -19,6 +19,7 @@ export const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.
 
 /** 与 index.html 一致的脚本顺序；跳过依赖真实 DOM 的 radar/screens/app。 */
 export const CLASSIC_SCRIPT_ORDER = Object.freeze([
+  'js/data/freewrite.js',
   'config.js',
   'js/data/anchors.js',
   'js/data/overreach.js',
@@ -165,6 +166,7 @@ export function loadBrowserGlobals(options = {}) {
   };
 
   const globals = {
+    TSG_FREEWRITE: context.TSG_FREEWRITE,
     TSG_CONFIG: context.TSG_CONFIG,
     TSG_ANCHORS: context.TSG_ANCHORS,
     TSG_OVERREACH: context.TSG_OVERREACH,
@@ -186,6 +188,7 @@ export function loadBrowserGlobals(options = {}) {
   const intent = {
     INTENTS: json('TSG_Intent.INTENTS'),
     classify: (...a) => context.TSG_Intent.classify(...a),
+    candidates: (...a) => context.TSG_Intent.candidates(...a),
     resolveOption: (...a) => context.TSG_Intent.resolveOption(...a),
   };
 

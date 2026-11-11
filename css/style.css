@@ -558,6 +558,20 @@ body::before {
 .exam-line { margin: 12px 0 8px; }
 .exam-cites { margin: 0 0 8px; padding-left: 20px; color: var(--paper-faint); }
 .exam-foot { margin: 0; color: var(--paper-faint); }
+
+/* 自书反馈：史官读作 / 落点选择 */
+.selfwrite-meta {
+  max-width: var(--w-read); margin: 28px 0 0; padding: 16px 0;
+  border-top: 1px dashed var(--line);
+  font-family: var(--font-ui);
+}
+.selfwrite-read { margin: 0 0 10px; font-size: 13px; letter-spacing: .5px; color: var(--paper-dim); }
+.selfwrite-read b { color: var(--gold); font-weight: 400; letter-spacing: 2px; }
+.selfwrite-count { float: right; font-size: 12px; color: var(--paper-faint); letter-spacing: 1px; }
+.selfwrite-note { margin: 0 0 10px; font-size: 13px; line-height: 1.9; color: var(--paper-dim); }
+.selfwrite-note b { color: var(--paper); font-weight: 400; }
+.selfwrite-picks { display: flex; flex-wrap: wrap; gap: 10px; margin: 4px 0 10px; }
+.selfwrite-hintline { margin: 0; font-size: 12px; color: var(--paper-faint); letter-spacing: .5px; }
 .pending .prose p { color: var(--paper-dim); animation: inkPulse 1.6s ease-in-out infinite alternate; }
 @keyframes inkPulse { from { opacity: .42; } to { opacity: .9; } }
 

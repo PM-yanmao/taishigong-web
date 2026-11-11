@@ -44,31 +44,40 @@
     return n;
   }
 
-  /** 返回当前节点下应走的既有选项 id；自定义输入永远不产生新边。
-   *  没有任何字面重合、也没有意图亲和时返回 null ——
-   *  让前端提示「此页没有可承接的走向」，而不是静默取列表第一项。 */
-  function resolveOption(node, state, text, intent) {
+  /** 此行可落到哪几条既有边上（按字面重合 + 意图亲和排序）。
+   *  返回 [{id,text,score}]，最多 limit 条；空数组 = 此页没有可承接的走向。
+   *  resolveOption 只取第一条；多候选时前端把落点选择权交给玩家。 */
+  function candidates(node, state, text, intent, limit) {
     var opts = (typeof visibleOptions === 'function' ? visibleOptions(node, state) : (node.options || []))
       .filter(function (o) {
         if (o.terminal) return false;                       // 不让自书误触 BAD END
         if (o.gate && !passGate(state, o.gate) && !o.gate.selectableWhenFailing) return false;
         return true;
       });
-    if (!opts.length) return null;
+    if (!opts.length) return [];
     var affinity = intent ? (AFFINITY[node.id] || {})[intent] : null;
-    var best = opts[0], bestScore = 0;
-    opts.forEach(function (o) {
+    var list = [];
+    opts.forEach(function (o, i) {
       var s = overlap(String(text || ''), String(o.text || ''));
       if (o.id === affinity) s += 12;                      // 意图亲和优先
-      if (s > bestScore) { bestScore = s; best = o; }
+      if (s > 0) list.push({ id: o.id, text: o.text, score: s, order: i });
     });
-    return bestScore > 0 ? best.id : null;
+    list.sort(function (a, b) { return (b.score - a.score) || (a.order - b.order); });
+    return list.slice(0, limit || 3).map(function (x) {
+      return { id: x.id, text: x.text, score: x.score };
+    });
+  }
+
+  function resolveOption(node, state, text, intent) {
+    var c = candidates(node, state, text, intent, 1);
+    return c.length ? c[0].id : null;
   }
 
   g.TSG_Intent = {
     INTENTS: INTENTS,
     AFFINITY: AFFINITY,
     classify: classify,
+    candidates: candidates,
     resolveOption: resolveOption,
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

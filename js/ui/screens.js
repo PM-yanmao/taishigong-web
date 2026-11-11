@@ -125,7 +125,11 @@ function hudHTML(state) {
 /* 起句示例：降低空白恐惧，同时示范「什么算一行能过的输入」 */
 var FREE_SAMPLES = {
   L1: ['把父亲那卷竹简收进袖中', '先看杜周的颜色再开口', '只说李陵平日为人，不判其罪'],
+  L2A: ['只说判词不实，不为自己乞怜', '把旧识的名字咽回去，认罪', '求廷尉容我把那卷简写完'],
   L3: ['问狱吏赎钱要几时纳齐', '把那卷未写完的简要回来', '应下受刑，只求留下一支笔'],
+  A1: ['闭门，把书稿接着往下写', '去中书省当值，不与人多言', '把酒戒了，夜里点灯续写'],
+  A2: ['把不祥处原样留着，呈上去', '删去两行，另抄一份藏起', '去问那中使，删到哪一句为止'],
+  A3: ['回信，只写自己为何不死', '把信烧了，不留一个字', '托人递话，求他不要再写信'],
 };
 function samplesHTML(nodeId) {
   var list = FREE_SAMPLES[nodeId] || [];
@@ -143,18 +147,21 @@ function sceneScreen(node, state, extra) {
     .join('');
   var progress = (state.history || []).length + 1;
   var ex = extra || {};
-  var cfg = (typeof TSG_CONFIG !== 'undefined' && TSG_CONFIG) || { freeLimit: 3, maxChars: 40 };
-  var open = (cfg.openNodes || []).indexOf(node.id) >= 0;
-  var left = (typeof ex.freeLeft === 'number') ? ex.freeLeft : cfg.freeLimit;
-  var free = open && !node.autoEnd
+  var cfg = (typeof TSG_CONFIG !== 'undefined' && TSG_CONFIG) || { freeLimit: 5, maxChars: 60 };
+  var canFree = (typeof ex.canFree === 'boolean')
+    ? ex.canFree
+    : (cfg.openNodes || []).indexOf(node.id) >= 0;
+  var left = (typeof ex.freeLeft === 'number') ? ex.freeLeft : (cfg.freeLimit || 5);
+  var total = ex.freeTotal || cfg.freeLimit || 5;
+  var free = canFree && !node.autoEnd
     ? '<div class="freewrite' + (left <= 0 ? ' spent' : '') + '">' +
         '<button class="freewrite-toggle" data-action="free-toggle">' +
-        '或，自书一行<span class="freewrite-left">（尚余 ' + left + ' 次）</span></button>' +
+        '或，自书一行<span class="freewrite-left">（本局 ' + (total - left) + ' / ' + total + ' 笔）</span></button>' +
         (ex.freeOpen
           ? '<div class="freewrite-body">' +
-            '<p class="freewrite-hint">写你想做的动作或态度，不写结果。越出身份与制度的事也可以写——史官自会写它为何落空。</p>' +
+            '<p class="freewrite-hint">写你想做的动作或态度，不写结果。越出身份与制度的事也可以写——史官自会写它为何落空。落笔后你能看到史官怎么读这一行、它可能落在哪几条路上。</p>' +
             samplesHTML(node.id) +
-            '<textarea id="free-input" maxlength="' + cfg.maxChars + '" rows="2" placeholder="一行即可……"></textarea>' +
+            '<textarea id="free-input" maxlength="' + cfg.maxChars + '" rows="2" placeholder="一行即可，至多 ' + cfg.maxChars + ' 字……"></textarea>' +
             '<div class="freewrite-row">' +
             '<button class="btn primary" data-action="free-submit">落笔</button>' +
             '<button class="btn" data-action="free-cancel">收起</button>' +
@@ -393,11 +400,36 @@ function generatedScreen(page, state, info) {
   var facts = (node && typeof TSG_ANCHORS !== 'undefined' && TSG_ANCHORS.nodeFacts[node.id]) || null;
   var inst = facts && facts.institution ? facts.institution : '';
   var over = !!page.overreach;
+  var cands = page.candidates || [];
+  var used = (page.freeTotal || 5) - (typeof page.freeLeft === 'number' ? page.freeLeft : 0);
+  /* 自书反馈：史官读作什么、这一笔第几次、这一行落在哪条路上（多候选时由玩家选） */
+  var meta = '';
+  if (page.intentLabel || over) {
+    meta += '<div class="selfwrite-meta">' +
+      '<p class="selfwrite-read">史官读作：<b>' + esc(over ? '越出当下' : (page.intentLabel || '自书')) + '</b>' +
+      '<span class="selfwrite-count">第 ' + used + ' / ' + (page.freeTotal || 5) + ' 笔</span></p>';
+    if (over) {
+      meta += '<p class="selfwrite-note">此念落不下去：<b>' + esc(page.overreachText || page.overreachReason || '此非其时所能为') + '</b>。现实把它压回原处，你仍可做下面几件事。</p>';
+    } else if (cands.length > 1) {
+      meta += '<p class="selfwrite-note">这一行可以落在下面几条既有路上。自书不点亮图鉴，只替你选一条路走下去。</p>' +
+        '<div class="row selfwrite-picks">' +
+        cands.map(function (c, i) {
+          return '<button class="btn' + (i === 0 ? ' primary' : '') + '" data-action="pick-edge" data-opt="' + esc(c.id) + '">' +
+            esc(c.text) + '</button>';
+        }).join('') +
+        '</div><p class="selfwrite-hintline">或按回车，走第一项。</p>';
+    } else if (cands.length === 1) {
+      meta += '<p class="selfwrite-note">这一行落在：<b>' + esc(cands[0].text) + '</b>。</p>';
+    }
+    meta += '</div>';
+  }
   /* 越界页直接把本页既有选项摆出来，玩家的「做不到」自然滑回「能做的事」 */
   var foot = (over && node)
     ? '<p class="exam-line">你面前仍只有这几件事可做。</p>' +
       '<div class="options">' + renderOptions(node, state) + '</div>'
-    : '<div class="options"><button class="btn primary" data-action="generated-continue">继续</button></div>';
+    : (cands.length > 1
+      ? ''
+      : '<div class="options"><button class="btn primary" data-action="generated-continue">继续</button></div>');
   return (
     '<section class="screen scene generated">' +
     artBg(page.art || 'assets/bg/bg_court.jpg', page.nodeTitle || '') +
@@ -416,6 +448,7 @@ function generatedScreen(page, state, info) {
     (cites ? '<ul class="exam-cites">' + cites + '</ul>' : '') +
     '<p class="exam-foot">你自书的一行：' + esc(page.playerText || '') + '</p>' +
     '</details>' +
+    meta +
     foot +
     '</div></section>'
   );

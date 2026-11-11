@@ -6,11 +6,18 @@ const A = require('../js/data/anchors.js');
 globalThis.TSG_ANCHORS = A;
 const OVERREACH = require('../js/data/overreach.js');
 globalThis.TSG_OVERREACH = OVERREACH;
+/* 自书字数上限与前端同源（js/data/freewrite.js） */
+const FREEWRITE = require('../js/data/freewrite.js');
+globalThis.TSG_CONFIG = globalThis.TSG_CONFIG || {
+  minChars: FREEWRITE.minChars || 4,
+  maxChars: FREEWRITE.maxChars || 40,
+};
 require('../js/guard.js');
 const G = globalThis.TSG_Guard;
 
 export const ANCHORS = A;
-export { OVERREACH };
+export { OVERREACH, FREEWRITE };
+export const MAX_CHARS = FREEWRITE.maxChars || 40;
 
 /** 服务端额外检查：citation 必须来自白名单；场景级禁止项 */
 export function checkEnvelope(data, payload) {
