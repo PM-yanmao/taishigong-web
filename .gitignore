@@ -3,3 +3,6 @@ logs/*
 !logs/.gitkeep
 node_modules/
 .DS_Store
+
+# 开发期预览/临时脚本（tools/art_grade.py 输出等）
+/analysis/
