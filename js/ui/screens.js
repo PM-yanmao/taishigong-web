@@ -422,6 +422,7 @@ function generatedScreen(page, state, info) {
   var facts = (node && typeof TSG_ANCHORS !== 'undefined' && TSG_ANCHORS.nodeFacts[node.id]) || null;
   var inst = facts && facts.institution ? facts.institution : '';
   var over = !!page.overreach;
+  var netNote = page.netNote ? '<p class="net-note">' + esc(page.netNote) + '</p>' : '';
   var cands = page.candidates || [];
   var used = (page.freeTotal || 5) - (typeof page.freeLeft === 'number' ? page.freeLeft : 0);
   /* 自书反馈：史官读作什么、这一笔第几次、这一行落在哪条路上（多候选时由玩家选） */
@@ -463,6 +464,7 @@ function generatedScreen(page, state, info) {
     '<span class="selfmark">自书 · ' + esc(src) + '</span>' +
     '</header>' +
     '<div class="prose' + (page.noUnroll ? '' : ' unroll') + '">' + paras + '</div>' +
+    netNote +
     '<details class="exam">' +
     '<summary>' + (over ? '史官按 · 何以做不到' : '史官按 · 本页何为史实，何为留白') + '</summary>' +
     '<p class="exam-line">' + esc(page.examNote || '') + '</p>' +
@@ -522,9 +524,12 @@ function settingsScreen(info) {
   var st = (info && info.netStatus) || { online: false };
   var mode = (info && info.mode) || 'auto';
   var cfg = (typeof TSG_CONFIG !== 'undefined' && TSG_CONFIG) || {};
-  var badge = st.online && st.hasKey
-    ? '接口已连接 · 模型 ' + esc(st.model || '') + ' · 锚点库 v' + esc(st.anchors || '?')
-    : (st.online ? '接口在线，但未配置 Key' : '接口未连接');
+  var needToken = !!(st.online && st.hasKey && st.hasToken && !cfg.token);
+  var badge = needToken
+    ? '接口在线 · 需要课堂口令（在下方「接口地址」里填写）'
+    : (st.online && st.hasKey
+      ? '接口已连接 · 模型 ' + esc(st.model || '') + ' · 锚点库 v' + esc(st.anchors || '?')
+      : (st.online ? '接口在线，但未配置 Key' : '接口未连接'));
   return (
     '<section class="screen settings">' +
     '<div class="page-inner">' +

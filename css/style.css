@@ -569,6 +569,13 @@ body::before {
 .exam-line { margin: 12px 0 8px; }
 .exam-cites { margin: 0 0 8px; padding-left: 20px; color: var(--paper-faint); }
 .exam-foot { margin: 0; color: var(--paper-faint); }
+.net-note {
+  max-width: var(--w-read); margin: 18px 0 0; padding: 9px 12px;
+  border-left: 2px solid rgba(232, 195, 90, 0.55);
+  background: rgba(232, 195, 90, 0.06);
+  font-family: var(--font-ui); font-size: 13px; line-height: 1.8;
+  color: var(--paper-dim);
+}
 
 /* 自书反馈：史官读作 / 落点选择 */
 .selfwrite-meta {

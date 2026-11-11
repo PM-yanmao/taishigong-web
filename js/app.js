@@ -30,6 +30,7 @@ var APP = {
   pendingCandidates: [],
   streamText: '',
   streamRetrying: false,
+  netAuthFailed: false,
   leaderOnlyOrthodox: false,
   busy: false,
 };
@@ -341,6 +342,12 @@ function appFreeWrite(text) {
   var hint = chk.hint || null;              // 词表只给提示，不再替模型下结论
   if (APP.freeLeft <= 0) return appFreeError('本局自书已用尽。');
 
+  /* 服务端启用了课堂口令、页面却没拿到：不要静默回退离线包，直接说明怎么填 */
+  if (online && APP.netStatus && APP.netStatus.hasToken && !cfg.token) {
+    return appFreeError('在线生成需要课堂口令：请在「设置 → 接口地址」里填写，或使用带 ?token= 的链接。');
+  }
+  APP.netAuthFailed = false;
+
   /* 在线：能不能做到，交给模型读制度自行判断；
    * 离线：没有模型，词表命中才退回预制否定段兜底。 */
   var over = online ? null : hint;
@@ -412,7 +419,9 @@ function appFreeWrite(text) {
         if (mark) mark.textContent = '自书 · 在线生成 · 史官复核中';
       },
       onFallback: function () {},
-      onError: function () {},
+      onError: function (err) {
+        if (err && (err.status === 401 || /401/.test(String(err.message)))) APP.netAuthFailed = true;
+      },
     }).then(function (data) {
       if (!data) return pack('stream-fallback');
       var out = TSG_Guard.checkOutput(data.text, payload);
@@ -431,7 +440,10 @@ function appFreeWrite(text) {
     if (!out.ok || !env.ok) return pack('guard');
     data.source = 'server';
     appShowGenerated(data, payload, cls, null, false, over);
-  }).catch(function () { pack('error'); });
+  }).catch(function (err) {
+    if (err && (err.status === 401 || /401/.test(String(err.message)))) APP.netAuthFailed = true;
+    pack('error');
+  });
 }
 
 function appUpdateStream(text) {
@@ -462,6 +474,16 @@ function appShowGenerated(data, payload, cls, fallbackReason, alreadyStreamed, o
     candidates: isOver ? [] : (APP.pendingCandidates || []),
     freeLeft: Math.max(0, APP.freeLeft - 1),
     freeTotal: cfg.freeLimit || 5,
+    /* 在线失败/需要口令时，页面上要看得见，而不是悄悄换成离线剧本包 */
+    netNote: (function () {
+      if (APP.netAuthFailed) {
+        return '在线生成需要课堂口令，本页由离线剧本包写成。请在「设置 → 接口地址」填写口令，或使用带 ?token= 的链接。';
+      }
+      if (fallbackReason && fallbackReason !== 'pack' && APP.netStatus && APP.netStatus.hasKey) {
+        return '在线生成这次没成功，本页由离线剧本包写成（课堂演示不中断）。';
+      }
+      return '';
+    })(),
   };
   APP.recentTexts.push(String(data.text || '').slice(0, 260));
   if (APP.recentTexts.length > 2) APP.recentTexts.shift();

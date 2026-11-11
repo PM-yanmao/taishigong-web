@@ -19,7 +19,11 @@
     var init = Object.assign({}, opts || {}, ctrl ? { signal: ctrl.signal } : {});
     return fetch(base() + path, init).then(function (r) {
       clearTimeout(timer);
-      if (!r.ok) throw new Error('HTTP ' + r.status);
+      if (!r.ok) {
+        var err = new Error('HTTP ' + r.status);
+        err.status = r.status;                 // 让上层区分 401（要口令）与普通失败
+        throw err;
+      }
       return r.json();
     }).catch(function (e) { clearTimeout(timer); throw e; });
   }
@@ -27,8 +31,8 @@
   function status() {
     var c = g.TSG_CONFIG || {};
     return request('/api/health', { method: 'GET' }, c.statusTimeoutMs || 1800)
-      .then(function (j) { return { online: true, model: j.model, hasKey: !!j.hasKey, anchors: j.anchors }; })
-      .catch(function () { return { online: false, model: null, hasKey: false, anchors: null }; });
+      .then(function (j) { return { online: true, model: j.model, hasKey: !!j.hasKey, hasToken: !!j.hasToken, anchors: j.anchors }; })
+      .catch(function () { return { online: false, model: null, hasKey: false, hasToken: false, anchors: null }; });
   }
 
   function generate(payload) {
@@ -55,7 +59,11 @@
     if (ctrl) init.signal = ctrl.signal;
 
     return fetch(base() + '/api/generate-stream', init).then(function (r) {
-      if (!r.ok) throw new Error('HTTP ' + r.status);
+      if (!r.ok) {
+        var err = new Error('HTTP ' + r.status);
+        err.status = r.status;
+        throw err;
+      }
       if (!r.body || !r.body.getReader || typeof TextDecoder === 'undefined') throw new Error('stream unsupported');
       var reader = r.body.getReader(), dec = new TextDecoder(), buf = '';
       function pump() {
