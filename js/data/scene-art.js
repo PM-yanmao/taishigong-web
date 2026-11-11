@@ -11,6 +11,26 @@
       "L1": {
         "jpg": "assets/scene/L1.jpg",
         "webp": "assets/webp/scene/L1.webp"
+      },
+      "L2A": {
+        "jpg": "assets/scene/L2A.jpg",
+        "webp": "assets/webp/scene/L2A.webp"
+      },
+      "L3": {
+        "jpg": "assets/scene/L3.jpg",
+        "webp": "assets/webp/scene/L3.webp"
+      },
+      "A1": {
+        "jpg": "assets/scene/A1.jpg",
+        "webp": "assets/webp/scene/A1.webp"
+      },
+      "A2": {
+        "jpg": "assets/scene/A2.jpg",
+        "webp": "assets/webp/scene/A2.webp"
+      },
+      "A3": {
+        "jpg": "assets/scene/A3.jpg",
+        "webp": "assets/webp/scene/A3.webp"
       }
     },
     "webp": {
@@ -45,7 +65,12 @@
       "assets/ending/ending_12.jpg": "assets/webp/ending/ending_12.webp",
       "assets/ending/ending_13.jpg": "assets/webp/ending/ending_13.webp",
       "assets/mural.jpg": "assets/webp/mural.webp",
+      "assets/scene/A1.jpg": "assets/webp/scene/A1.webp",
+      "assets/scene/A2.jpg": "assets/webp/scene/A2.webp",
+      "assets/scene/A3.jpg": "assets/webp/scene/A3.webp",
       "assets/scene/L1.jpg": "assets/webp/scene/L1.webp",
+      "assets/scene/L2A.jpg": "assets/webp/scene/L2A.webp",
+      "assets/scene/L3.jpg": "assets/webp/scene/L3.webp",
       "assets/title.jpg": "assets/webp/title.webp"
     }
   };

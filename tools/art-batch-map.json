@@ -1,0 +1,43 @@
+[
+  {
+    "file": "ChatGPT 图像 2026年11月11日 13_05_57.png",
+    "id": "L2A",
+    "type": "scene",
+    "target_p50": 0.23
+  },
+  {
+    "file": "ChatGPT 图像 2026年11月11日 13_06_06.png",
+    "id": "L3",
+    "type": "scene",
+    "target_p50": 0.19
+  },
+  {
+    "file": "ChatGPT 图像 2026年11月11日 13_06_18.png",
+    "id": "A1",
+    "type": "scene",
+    "target_p50": 0.27
+  },
+  {
+    "file": "ChatGPT 图像 2026年11月11日 13_06_27.png",
+    "id": "A2",
+    "type": "scene",
+    "target_p50": 0.22
+  },
+  {
+    "file": "ChatGPT 图像 2026年11月11日 13_06_37.png",
+    "id": "A3",
+    "type": "scene",
+    "target_p50": 0.21
+  },
+  {
+    "file": "ChatGPT 图像 2026年11月11日 13_06_47.png",
+    "id": "yangyun",
+    "type": "char"
+  },
+  {
+    "file": "西汉冬日朝堂谒见.png",
+    "id": "L1",
+    "type": "scene",
+    "target_p50": 0.2
+  }
+]

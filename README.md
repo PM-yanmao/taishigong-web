@@ -122,9 +122,11 @@ server/
   .env.example        环境变量样例（复制为 .env）
 tools/
   art_pipeline.py     美术资产管线（开发期，Python+Pillow）：校验/归一化/WebP/清单
+  art_grade.py        批量调色（开发期）：把 GPT 出图调成项目的冷青灰 + 暖灯金
+  art-batch-map.json  本批出图 → 节点 id 的映射与调色目标
 assets/
-  bg/ char/ ending/   现有 31 张图（jpg 兜底）+ assets/webp/ 对应的 WebP
-  scene/              22 张场景插画位（当前为空，缺图回退 bg/ 的 10 张共用背景）
+  bg/ char/ ending/   现有 38 张图（jpg 兜底）+ assets/webp/ 对应的 WebP
+  scene/              22 张场景插画位（已就位 L1/L2A/L3/A1/A2/A3，其余回退 bg/ 共用背景）
 docs/
   review-2026-11.md   接手时的完整代码审查报告（历史快照）
   history-factcheck.md 史实线逐条考据报告（含出处、争议项与"未能核实"清单）
@@ -229,10 +231,10 @@ npm test
 
 ## 八、接手备注 / 已知限制
 
-- 项目刻意保持**零依赖、无构建**：加测试也只用 `node:test`；不要为了一个小功能引入打包器。`tools/art_pipeline.py` 只在开发期用 Python+Pillow，运行时不依赖。
+- 项目刻意保持**零依赖、无构建**：加测试也只用 `node:test`；不要为了一个小功能引入打包器。`tools/art_pipeline.py`、`tools/art_grade.py` 只在开发期用 Python+Pillow，运行时不依赖。
 - 代码注释里引用的 `docs/04-决策基线`、`docs/07-美术需求清单` 等资料**不在本仓库**（项目从更大的制作目录抽出来）。历史背景以代码与 `anchors.js` 为准。
-- 剧本节点 `art` 字段指向 `assets/scene/*.jpg`，这 22 张场景插画**尚未就位**：`bgPath()` 会优先读 `js/data/scene-art.js` 清单，没有登记就回退 `NODE_BG` 的 10 张共用背景。提示词与替换流程见 `docs/art-brief.md`；出图后跑一次 `tools/art_pipeline.py` 即可，无需改代码。
-- 人物档案已补第 7 张「杨恽」卡，但立绘是程序生成的临时占位（水墨宣纸底+字样）；真图同名覆盖 `assets/char/char_yangyun.jpg` 即可。武将/后宫等配角仍无立绘。
+- 剧本节点 `art` 字段指向 `assets/scene/*.jpg`：22 张场景插画**已就位 6 张**（L1/L2A/L3/A1/A2/A3），其余 16 页由 `bgPath()` 回退 `NODE_BG` 的共用背景。出图 → 调色 → 入库的完整流程见 `docs/art-brief.md`，无需改代码。
+- 人物档案 7 张卡齐全（杨恽立绘已换成真图）。杨恽冠式是偏晚的幞头样式，历史考据上可再改；其余 6 张立绘未动。
 - 模型输出质量依赖 `server/prompt.mjs` 的锚点与输出校验；改提示词后请跑 `npm test` 并至少手测一次在线自书（可行 / 越界 / 校验重写三条路径）。
 - 内容口径：白话为主、半文言点缀；史实线贴合《史记·太史公自序》《报任安书》《汉书·司马迁传》，虚构只发生在史实留白处。逐条考据与出处见 `docs/history-factcheck.md`；生年、《报任安书》作年等争议项在 `anchors.disputes` 里写明"两说并存、不得写死"。
 - 本仓库未声明开源许可证；对外分发或二次开发前请先与作者确认。
@@ -282,9 +284,10 @@ npm test
 ## 十一、v1.3 美术资产管线（2026-11）
 
 - **提示词**：`docs/art-brief.md` 给出 22 张场景插画 + 杨恽立绘的 GPT 提示词，按 OpenAI 官方 Image prompting 指南的 Scene / Subject / Composition / Light / Style / Constraints 结构写，含参考图角色、短版模板、翻车修正话术与验收清单。
-- **替换流程**：图片按 `assets/scene/<节点id>.jpg` 命名丢进去 → `python tools/art_pipeline.py --normalize --scan --optimize` → 刷新页面。脚本自动归一化到 1920×1080、生成 WebP、重写 `js/data/scene-art.js` 清单；没登记的页面继续用共用背景，可增量替换。
-- **WebP**：现有 31 张 JPG（12.81 MB）转出 WebP 5.56 MB，省 **56.6%**；前端 `<picture>` 优先 WebP、JPG 兜底，图鉴母图用 CSS `image-set()`。
-- **杨恽**：人物档案第 7 张卡已补（`characters.js` + `char_yangyun.jpg` 占位立绘），真图同名覆盖即可。
+- **调色**：GPT 出图通常比现有背景更暗、更暖，直接入库会在页面切换时跳色。`tools/art_grade.py` 负责批量适配：按节点指定目标中间调做 gamma 提亮、轻微降饱和、冷暗部/暖高光分区调色、轻对比与暗角；人物卡单独向现有 6 张的宣纸纸色/亮度靠。映射与目标写在 `tools/art-batch-map.json`。
+- **替换流程**：图片放源目录 → 编辑映射 → `python tools/art_grade.py --install` → `python tools/art_pipeline.py --normalize --scan --optimize` → 刷新页面。脚本自动归一化到 1920×1080、生成 WebP、重写 `js/data/scene-art.js` 清单；没登记的页面继续用共用背景，可增量替换。
+- **首批已入库 6 张**：L1 朝议、L2A 议罪、L3 生死抉择、A1 世态炎凉、A2 武帝审查、A3 任安之信；杨恽立绘同时换成真图。
+- **WebP**：现有 38 张 JPG（14.95 MB）转出 WebP 6.42 MB，省 **57.1%**；前端 `<picture>` 优先 WebP、JPG 兜底，图鉴母图用 CSS `image-set()`。
 - 测试新增 `tests/art.test.mjs`（清单/文件存在性/WebP 成对/人物卡/结局图/加载顺序/`<picture>` 与回退），`npm test` 现为 **72 项**。
 
 ---

@@ -392,12 +392,21 @@ No text, no watermark, no modern objects.
 
 ---
 
-## 六、存图与上线（两步）
+## 六、存图与上线（三步）
 
-1. 按上面文件名存图：
+1. 按上面文件名存图（成批出图时先放一个源目录即可）：
    - 场景 → `assets/scene/<id>.jpg`（`P1.jpg`…`R1.jpg`，共 22 个）
    - 杨恽 → `assets/char/char_yangyun.jpg`
-2. 项目根运行（需要 Python + Pillow；脚本说明见 `tools/art_pipeline.py` 头部）：
+2. **调色**（GPT 出图通常比现有背景更暗、更暖，直接入库会跳色）：编辑 `tools/art-batch-map.json`，把这一批的「源文件名 → 节点 id → 目标中间调」写进去，然后：
+
+```bash
+python tools/art_grade.py --install
+```
+
+脚本会：中心裁切到 16:9 / 1920×1080（人物 800×800）→ 按目标提亮中间调 → 轻微降饱和 → 冷暗部/暖高光分区调色 → 轻对比/暗角 → 写入 `assets/scene/`（人物写 `assets/char/`）。
+场景的 `target_p50` 参考：雪景/夜谈 0.20–0.27，牢房/暗室 0.16–0.19；人物卡不用填（有单独的人物卡调色）。
+
+3. **入库/出 WebP/更新清单**（需要 Python + Pillow；脚本说明见 `tools/art_pipeline.py` 头部）：
 
 ```bash
 # 图已经是 1920×1080 的 jpg：校验 + 出 WebP + 更新清单
@@ -412,7 +421,9 @@ python tools/art_pipeline.py --all
 ```
 
 脚本会：校验命名 → 中心裁切/缩放到 1920×1080（角色 800×800）→ 生成 `assets/webp/` → 重写 `js/data/scene-art.js` 清单。**刷新页面即可，不用改代码。**
-只出了 L1/L2A/L3/A1/A2/A3 六张也能先跑——其余页面自动回退原来 10 张共用背景。
+只出了几张也能先跑——其余页面自动回退原来 10 张共用背景。
+
+> 首批（L1/L2A/L3/A1/A2/A3 + 杨恽）已按这个流程入库；`tools/art-batch-map.json` 里保留了这一批的映射与目标值，下一批照抄改文件名即可。
 
 ---
 
