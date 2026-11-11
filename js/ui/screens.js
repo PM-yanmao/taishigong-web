@@ -43,16 +43,17 @@ function renderOptions(node, state) {
   var opts = visibleOptions(node, state);
   opts.forEach(function (o, i) {
     var ok = !o.gate || passGate(state, o.gate);
-    var cls = 'opt' + (ok ? '' : ' locked');
+    /* 门槛不足但允许冒险的选项（如「当庭指斥酷吏（凶多吉少）」）：
+     * 必须可点，点了由 engine.resolve 走 failTerminal。旧版把它一并 disabled，分支永远打不开。 */
+    var risky = !ok && !!(o.gate && o.gate.selectableWhenFailing);
+    var cls = 'opt' + ((!ok && !risky) ? ' locked' : '') + (risky ? ' risky' : '');
     var lock = '';
     if (!ok) {
-      lock = '<span class="opt-lock">' + esc(gateReason(o)) + '</span>';
-    } else if (o.gate && o.gate.selectableWhenFailing) {
-      lock = '<span class="opt-lock warn">' + esc(gateReason(o)) + '</span>';
+      lock = '<span class="opt-lock' + (risky ? ' warn' : '') + '">' + esc(gateReason(o)) + '</span>';
     }
     html +=
       '<button class="' + cls + '" data-action="choose" data-opt="' + esc(o.id) + '"' +
-      (ok ? '' : ' disabled aria-disabled="true"') + '>' +
+      ((ok || risky) ? '' : ' disabled aria-disabled="true"') + '>' +
       '<span class="opt-id">' + (i + 1) + '</span>' +
       '<span class="opt-text">' + esc(o.text) + '</span>' +
       lock +
@@ -301,8 +302,12 @@ function galleryScreen(db) {
 
 /* ---------------- 排行榜 ---------------- */
 function leaderScreen(db, onlyOrthodox) {
-  var runs = storeAllRuns(db).filter(function (x) { return !onlyOrthodox || !x.run.customCount; });
-  var rows = runs.slice(0, 50).map(function (x, i) {
+  /* 文案承诺「按人格相似度排序」：同分再按时间倒序 */
+  var runs = storeAllRuns(db)
+    .filter(function (x) { return !onlyOrthodox || x.run.orthodox; })
+    .sort(function (a, b) { return (b.run.similarity - a.run.similarity) || (b.run.at - a.run.at); })
+    .slice(0, 50);
+  var rows = runs.map(function (x, i) {
     var name = (ENDING_BY_ID[x.run.endingId] || {}).name || '？';
     var d = new Date(x.run.at);
     var date = (d.getMonth() + 1) + '/' + d.getDate();
@@ -484,7 +489,13 @@ function settingsScreen(info) {
     '<div class="set-block"><h3>接口地址</h3>' +
     '<p class="hint">留空为同源。课堂演示请直接访问 http://localhost:' + (cfg.port || 8787) + '。</p>' +
     '<div class="set-row"><input id="api-base" placeholder="http://127.0.0.1:8787" value="' + esc((cfg && cfg.apiBase) || '') + '">' +
-    '<button class="btn" data-action="api-save">保存并探测</button></div></div>' +
+    '<button class="btn" data-action="api-save">保存并探测</button></div>' +
+    '<p class="hint">若教师机在 server/.env 里设置了 TSG_TOKEN，请在这里填同一个口令；否则在线生成会返回 401 并自动回落离线包。</p>' +
+    '<div class="set-row"><input id="api-token" placeholder="课堂口令（未设置可留空）" value="' + esc((cfg && cfg.token) || '') + '">' +
+    '<button class="btn" data-action="token-save">保存口令</button></div></div>' +
+    '<div class="set-block"><h3>本机记录</h3>' +
+    '<p class="hint">一台设备多人轮流玩时，下课前可在这里清空本机所有玩家的 ID、局数与图鉴（不可恢复）。</p>' +
+    '<div class="row"><button class="btn" data-action="clear-records">清除本机记录</button></div></div>' +
     '<div class="set-block"><h3>史实边界</h3>' +
     '<p class="hint">用户可改变司马迁怎么想、怎么做、看见什么；不可改变汉代发生了什么。' +
     '自书只生成叙事正文，节点、分支、数值、13 结局与图鉴一律由原引擎裁决。' +

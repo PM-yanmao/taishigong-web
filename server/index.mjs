@@ -25,15 +25,38 @@ function loadEnv() {
   return env;
 }
 const fileEnv = loadEnv();
+/* .env 里的值也放进 process.env，便于各模块（日志开关等）统一读取 */
+for (const [k, v] of Object.entries(fileEnv)) if (process.env[k] === undefined) process.env[k] = v;
+
+const num = (v, d) => {
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0 ? n : d;
+};
+
 const CFG = {
-  port: Number(process.env.PORT || fileEnv.PORT || 8787),
+  port: Math.min(65535, Math.floor(num(process.env.PORT || fileEnv.PORT, 8787))),
   host: process.env.TSG_HOST || fileEnv.TSG_HOST || '127.0.0.1',
   apiUrl: process.env.TSG_API_URL || fileEnv.TSG_API_URL || 'https://api.deepseek.com/chat/completions',
-  apiKey: process.env.TSG_API_KEY || fileEnv.TSG_API_KEY || '',
+  apiKey: String(process.env.TSG_API_KEY ?? fileEnv.TSG_API_KEY ?? '').trim(),
   model: process.env.TSG_MODEL || fileEnv.TSG_MODEL || 'deepseek-flash',
   maxRetry: 1,
-  allowOrigin: process.env.TSG_ALLOW_ORIGIN || fileEnv.TSG_ALLOW_ORIGIN || '*',
+  /* 默认空 = 只服务同源页面；需要 GitHub Pages 跨域调用时显式列出来源（逗号分隔） */
+  allowOrigin: String(process.env.TSG_ALLOW_ORIGIN ?? fileEnv.TSG_ALLOW_ORIGIN ?? '').trim(),
+  /* 可选课堂口令：非空时 /api/generate* 必须带 X-TSG-Token */
+  token: String(process.env.TSG_TOKEN || fileEnv.TSG_TOKEN || '').trim(),
+  /* 每个 IP 每分钟最多生成次数（0 = 不限） */
+  rateLimit: Math.floor(num(process.env.TSG_RATE_LIMIT, 30)),
+  maxBody: 65536,
+  logsOff: /^(0|off|false|no)$/i.test(String(process.env.TSG_LOG || fileEnv.TSG_LOG || '')),
+  version: '1.1.0',
 };
+
+/* 服务端权威接受的自书节点与本节点可选边（与 js/data/scenes.*.js 保持一致） */
+const FREE_NODES = Object.freeze({
+  L1: ['A', 'B', 'C'],
+  L3: ['X1', 'X2', 'X3'],
+});
+const isLoopback = (h) => h === '127.0.0.1' || h === 'localhost' || h === '::1';
 
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
@@ -42,47 +65,130 @@ const MIME = {
   '.png': 'image/png', '.svg': 'image/svg+xml', '.ico': 'image/x-icon', '.webp': 'image/webp',
 };
 
-function cors(res) {
-  res.setHeader('Access-Control-Allow-Origin', CFG.allowOrigin);
+function cors(req, res) {
+  const list = String(CFG.allowOrigin || '')
+    .split(',').map((s) => s.trim()).filter(Boolean);
+  const origin = req && req.headers && req.headers.origin;
+  if (!list.length || !origin) return;          // 默认只服务同源：不发放 CORS 头
+  const allow = list.includes('*') ? '*' : (list.includes(origin) ? origin : '');
+  if (!allow) return;
+  res.setHeader('Access-Control-Allow-Origin', allow);
+  res.setHeader('Vary', 'Origin');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  res.setHeader('Access-Control-Max-Age', '86400');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-TSG-Token');
+  res.setHeader('Access-Control-Max-Age', '600');
 }
-function json(res, code, obj) {
-  cors(res);
+function securityHeaders(res) {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+}
+function json(req, res, code, obj) {
+  cors(req, res);
+  securityHeaders(res);
   res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
   res.end(JSON.stringify(obj));
 }
-function readBody(req) {
+function forbid(req, res) {
+  securityHeaders(res);
+  res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' });
+  res.end('forbidden');
+}
+function notFound(req, res) {
+  securityHeaders(res);
+  res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+  res.end('404');
+}
+function readBody(req, max = CFG.maxBody) {
   return new Promise((resolve, reject) => {
-    let buf = '';
-    req.on('data', c => {
-      buf += c;
-      if (buf.length > 65536) { reject(new Error('body too large')); req.destroy(); }
+    const chunks = [];
+    let size = 0;
+    req.on('data', (chunk) => {
+      size += chunk.length;
+      if (size > max) {
+        const err = new Error('body too large');
+        err.code = 'E_BODY_TOO_LARGE';
+        reject(err);
+        req.destroy();
+        return;
+      }
+      chunks.push(chunk);
     });
-    req.on('end', () => { try { resolve(buf ? JSON.parse(buf) : {}); } catch (e) { reject(e); } });
+    /* 用 Buffer 收集再整体解码，避免多字节 UTF-8 跨 chunk 被截成乱码 */
+    req.on('end', () => {
+      try {
+        const text = Buffer.concat(chunks).toString('utf8');
+        resolve(text ? JSON.parse(text) : {});
+      } catch (e) { reject(e); }
+    });
     req.on('error', reject);
   });
 }
 
-/* ---------- 静态文件 ---------- */
+/* ---------- 自书接口的入参白名单（防止拿本机 Key 当通用 LLM 用） ---------- */
+function checkPayload(p) {
+  if (!p || typeof p !== 'object' || Array.isArray(p)) return 'bad_body';
+  const opts = FREE_NODES[p.nodeId];
+  if (!opts) return 'bad_node';
+  if (!opts.includes(String(p.nextOptionId || ''))) return 'bad_option';
+  if (typeof p.text !== 'string' || !p.text.trim()) return 'bad_text';
+  if (p.text.length > 200) return 'text_too_long';
+  return null;
+}
+function authorized(req) {
+  if (!CFG.token) return true;
+  return String(req.headers['x-tsg-token'] || '') === CFG.token;
+}
+
+/* ---------- 极简限流：每个 IP 每分钟最多 N 次生成 ---------- */
+const rateBuckets = new Map();
+function rateLimited(ip) {
+  if (!CFG.rateLimit) return false;
+  const now = Date.now();
+  let b = rateBuckets.get(ip);
+  if (!b || now > b.reset) { b = { count: 0, reset: now + 60000 }; rateBuckets.set(ip, b); }
+  b.count += 1;
+  if (rateBuckets.size > 5000) rateBuckets.clear();
+  return b.count > CFG.rateLimit;
+}
+
+/* ---------- 静态文件（黑名单 + 路径边界双重校验） ---------- */
+const REAL_ROOT = fs.realpathSync(ROOT);
+const WITHIN = (base, target) => {
+  const rel = path.relative(base, target);
+  return !!rel && !rel.startsWith('..') && !path.isAbsolute(rel);
+};
 function serveStatic(req, res, pathname) {
-  let rel = decodeURIComponent(pathname);
+  let rel;
+  try { rel = decodeURIComponent(pathname); } catch (e) { return badRequest(req, res); }
   if (rel === '/' || rel === '') rel = '/index.html';
-  /* 服务端源码、日志与 .env 一律不对外 */
-  if (/^\/(server|logs)\//i.test(rel) || /\.env/i.test(rel) || /(^|\/)\./.test(rel)) {
-    res.writeHead(403); return res.end('forbidden');
-  }
+  /* 反斜杠与 NUL 一律拒绝：Windows 上 path.resolve 会把 \ 当分隔符，绕过下面的 / 分隔黑名单 */
+  if (rel.includes('\0') || rel.includes('\\')) return forbid(req, res);
+  const segments = rel.split('/').filter(Boolean);
+  /* 服务端源码、日志、.env 与任何点开头的路径一律不对外 */
+  if (segments.some((s) => s.startsWith('.'))) return forbid(req, res);
+  if (segments[0] === 'server' || segments[0] === 'logs') return forbid(req, res);
   const target = path.resolve(ROOT, '.' + rel);
-  if (!target.startsWith(ROOT)) { res.writeHead(403); return res.end('forbidden'); }
+  if (!WITHIN(ROOT, target)) return forbid(req, res);
   fs.stat(target, (err, st) => {
-    if (err || !st.isFile()) { res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }); return res.end('404'); }
-    res.writeHead(200, {
-      'Content-Type': MIME[path.extname(target).toLowerCase()] || 'application/octet-stream',
-      'Cache-Control': 'no-cache',
+    if (err || !st.isFile()) return notFound(req, res);
+    /* 再验一次真实路径，防止软链接把仓库外的文件带进来 */
+    fs.realpath(target, (e2, real) => {
+      if (e2 || !WITHIN(REAL_ROOT, real)) return forbid(req, res);
+      const ext = path.extname(real).toLowerCase();
+      const isAsset = segments[0] === 'assets';
+      securityHeaders(res);
+      res.writeHead(200, {
+        'Content-Type': MIME[ext] || 'application/octet-stream',
+        'Cache-Control': isAsset ? 'public, max-age=86400' : 'no-cache',
+      });
+      fs.createReadStream(real).pipe(res);
     });
-    fs.createReadStream(target).pipe(res);
   });
+}
+function badRequest(req, res) {
+  securityHeaders(res);
+  res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' });
+  res.end('bad request');
 }
 
 /* ---------- 模型调用（单次为常态，最多重试一次） ---------- */
@@ -203,8 +309,9 @@ async function streamModel(messages, onRaw) {
   return raw;
 }
 
-function sseHead(res) {
-  cors(res);
+function sseHead(req, res) {
+  cors(req, res);
+  securityHeaders(res);
   res.writeHead(200, {
     'Content-Type': 'text/event-stream; charset=utf-8',
     'Cache-Control': 'no-cache, no-transform',
@@ -240,12 +347,18 @@ async function obtain(messages, useStream, push, p) {
 
 /* ---------- /api/generate（非流式，保留兼容与兜底） ---------- */
 async function handleGenerate(req, res) {
-  const p = await readBody(req);
+  let p;
+  try { p = await readBody(req); }
+  catch (e) {
+    return json(req, res, e.code === 'E_BODY_TOO_LARGE' ? 413 : 400, { ok: false, error: 'bad_request' });
+  }
+  const bad = checkPayload(p);
+  if (bad) return json(req, res, 400, { ok: false, error: 'bad_request', detail: bad });
   const input = checkInput(p.text);
-  if (!input.ok) return json(res, 400, { ok: false, error: 'input_rejected', reason: input.reason });
+  if (!input.ok) return json(req, res, 400, { ok: false, error: 'input_rejected', reason: input.reason });
   if (!CFG.apiKey) {
     logFallback(p.sessionId, p, 'no_key');
-    return json(res, 200, { ok: false, error: 'no_key' });
+    return json(req, res, 200, { ok: false, error: 'no_key' });
   }
 
   let last = null, violations = [];
@@ -261,20 +374,26 @@ async function handleGenerate(req, res) {
       );
     } catch (e) {
       logFallback(p.sessionId, p, 'provider_error: ' + e.message);
-      return json(res, 200, { ok: false, error: 'provider_error', detail: String(e.message).slice(0, 160) });
+      return json(req, res, 200, { ok: false, error: 'provider_error', detail: String(e.message).slice(0, 160) });
     }
   }
   if (!last || violations.length) {
     logFallback(p.sessionId, p, 'guard_failed: ' + violations.join('|'));
-    return json(res, 200, { ok: false, error: 'guard_failed', violations });
+    return json(req, res, 200, { ok: false, error: 'guard_failed', violations });
   }
-  return json(res, 200, { ok: true, data: finalize(last, p) });
+  return json(req, res, 200, { ok: true, data: finalize(last, p) });
 }
 
 /* ---------- /api/generate-stream（SSE，课堂演示主链路） ---------- */
 async function handleGenerateStream(req, res) {
-  const p = await readBody(req);
-  sseHead(res);
+  let p;
+  try { p = await readBody(req); }
+  catch (e) {
+    return json(req, res, e.code === 'E_BODY_TOO_LARGE' ? 413 : 400, { ok: false, error: 'bad_request' });
+  }
+  const bad = checkPayload(p);
+  if (bad) return json(req, res, 400, { ok: false, error: 'bad_request', detail: bad });
+  sseHead(req, res);
   const keep = setInterval(() => { try { res.write(': keep-alive\n\n'); } catch (e) {} }, 3000);
   const stop = () => { clearInterval(keep); try { res.end(); } catch (e) {} };
   try {
@@ -332,26 +451,57 @@ async function handleGenerateStream(req, res) {
 }
 
 /* ---------- 路由 ---------- */
-const server = http.createServer(async (req, res) => {
-  const u = new URL(req.url, 'http://localhost');
-  if (req.method === 'OPTIONS') { cors(res); res.writeHead(204); return res.end(); }
+async function route(req, res) {
+  const u = new URL(req.url || '/', 'http://localhost');
+  if (req.method === 'OPTIONS') { cors(req, res); res.writeHead(204); return res.end(); }
   if (u.pathname === '/api/health') {
-    return json(res, 200, { ok: true, model: CFG.model, hasKey: !!CFG.apiKey, anchors: ANCHORS.version, nodeVersion: '1.0.0' });
+    return json(req, res, 200, {
+      ok: true, model: CFG.model, hasKey: !!CFG.apiKey, hasToken: !!CFG.token,
+      anchors: ANCHORS.version, nodeVersion: CFG.version,
+    });
   }
   if (u.pathname === '/api/generate-stream' && req.method === 'POST') {
-    try { return await handleGenerateStream(req, res); }
-    catch (e) {
-      if (!res.headersSent) return json(res, 200, { ok: false, error: 'bad_request', detail: String(e.message).slice(0, 160) });
-      sseSend(res, 'fallback', { error: 'server_error', detail: String(e.message).slice(0, 160) });
-      return res.end();
+    if (!authorized(req)) return json(req, res, 401, { ok: false, error: 'unauthorized' });
+    if (rateLimited(req.socket.remoteAddress || 'unknown')) {
+      return json(req, res, 429, { ok: false, error: 'rate_limited' });
     }
+    return handleGenerateStream(req, res);
   }
   if (u.pathname === '/api/generate' && req.method === 'POST') {
-    try { return await handleGenerate(req, res); }
-    catch (e) { return json(res, 200, { ok: false, error: 'bad_request', detail: String(e.message).slice(0, 160) }); }
+    if (!authorized(req)) return json(req, res, 401, { ok: false, error: 'unauthorized' });
+    if (rateLimited(req.socket.remoteAddress || 'unknown')) {
+      return json(req, res, 429, { ok: false, error: 'rate_limited' });
+    }
+    return handleGenerate(req, res);
   }
-  if (u.pathname.startsWith('/api/')) return json(res, 404, { ok: false, error: 'not_found' });
+  if (u.pathname.startsWith('/api/')) return json(req, res, 404, { ok: false, error: 'not_found' });
   return serveStatic(req, res, u.pathname);
+}
+
+const server = http.createServer((req, res) => {
+  Promise.resolve()
+    .then(() => route(req, res))
+    .catch((e) => {
+      console.error('[server_error]', e && (e.stack || e.message));
+      if (!res.headersSent) json(req, res, 500, { ok: false, error: 'server_error' });
+      else { try { res.end(); } catch (_) {} }
+    });
+});
+
+/* 最后防线：任何未捕获的异步异常都不该结束课堂演示 */
+process.on('unhandledRejection', (e) => {
+  console.error('[unhandledRejection]', e && (e.stack || e.message || e));
+});
+
+server.on('error', (e) => {
+  if (e && e.code === 'EADDRINUSE') {
+    console.error('');
+    console.error('  端口 ' + CFG.port + ' 已被占用。可能已有一个服务在运行；');
+    console.error('  关掉旧进程，或在 server/.env 里改 PORT 后重试。');
+    console.error('');
+    process.exit(1);
+  }
+  throw e;
 });
 
 server.listen(CFG.port, CFG.host, () => {
@@ -359,7 +509,16 @@ server.listen(CFG.port, CFG.host, () => {
   console.log('  太史公 · 本地演示服务已启动');
   console.log('  打开  http://localhost:' + CFG.port + '   监听 ' + CFG.host);
   console.log('  接口  ' + (CFG.apiKey ? '已配置 Key（在线生成）' : '未配置 Key（自动走离线剧本包）'));
-  console.log('  模型  ' + CFG.model + '   锚点库 v' + ANCHORS.version);
-  console.log('  日志  logs/generate-*.jsonl（教师课后抽查）');
+  console.log('  模型  ' + CFG.model + '   锚点库 v' + ANCHORS.version + '   服务 v' + CFG.version);
+  console.log('  口令  ' + (CFG.token ? '已启用（X-TSG-Token）' : '未启用（仅建议本机演示）'));
+  console.log('  日志  ' + (CFG.logsOff ? '已关闭（TSG_LOG=off）' : 'logs/*.jsonl（教师课后抽查）'));
+  if (!isLoopback(CFG.host)) {
+    console.log('');
+    console.log('  ⚠ 正在监听非本机地址：同一局域网内任何人都能访问本服务。');
+    console.log('    建议设置 TSG_TOKEN 并在页面「设置」里填写口令；下课后立即 Ctrl+C。');
+  }
+  if (CFG.allowOrigin === '*') {
+    console.log('  ⚠ TSG_ALLOW_ORIGIN=*：任何网站都能跨域调用本接口（会消耗你的 Key）。');
+  }
   console.log('');
 });

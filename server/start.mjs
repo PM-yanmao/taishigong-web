@@ -14,6 +14,17 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const PAGES = 'https://pm-yanmao.github.io/taishigong-web/'; // 仓库改名时改这一行
 const ST = 'urn:schemas-upnp-org:service:WANIPConnection:1';
 
+/* 项目要求 Node 18+（内置 fetch / AbortSignal.timeout）。低版本要提前说清楚，
+ * 否则服务能起、生成全回退，课堂上很难排查。 */
+const NODE_MAJOR = Number(process.versions.node.split('.')[0]);
+if (NODE_MAJOR < 18) {
+  console.error('');
+  console.error('  需要 Node 18 或更高版本，当前 ' + process.versions.node + '。');
+  console.error('  https://nodejs.org/ 下载 LTS 版本后重试。');
+  console.error('');
+  process.exit(1);
+}
+
 function readEnv() {
   const out = {};
   const p = path.join(HERE, '.env');
@@ -40,21 +51,28 @@ function portFree(port) {
 function primaryIP() {
   return new Promise(res => {
     const s = dgram.createSocket('udp4');
-    const done = v => { clearTimeout(t); try { s.close(); } catch (e) {} res(v); };
-    const t = setTimeout(() => done(null), 900);
+    let timer = null;
+    const done = v => { if (timer) clearTimeout(timer); try { s.close(); } catch (e) {} res(v); };
+    timer = setTimeout(() => done(null), 900);
     s.once('error', () => done(null));
     s.connect(53, '223.5.5.5', () => done(s.address().address));
   });
 }
-/* 只列与主用地址同网段的物理网卡，滤掉 Hyper-V / APIPA 等虚拟地址 */
+/* 只列与主用地址同网段的物理网卡：滤掉 Hyper-V / WSL / VPN / APIPA 等虚拟地址，
+ * 否则会把 198.18.x.x 之类地址当作「教室局域网」打印出来，学生根本连不上。 */
+const VIRTUAL_IF = /(vethernet|hyper-v|vmware|virtualbox|loopback|wsl|tap|tun|docker|vpn|zerotier|tailscale|radmin|hamachi)/i;
 function lanIPs(primary) {
   const prefix = primary ? primary.split('.').slice(0, 3).join('.') + '.' : null;
   const out = [];
-  for (const addrs of Object.values(os.networkInterfaces()))
-    for (const a of addrs || [])
-      if (a.family === 'IPv4' && !a.internal &&
-          !a.address.startsWith('169.254') && (!prefix || a.address.startsWith(prefix)))
-        out.push(a.address);
+  for (const [name, addrs] of Object.entries(os.networkInterfaces())) {
+    if (VIRTUAL_IF.test(name)) continue;
+    for (const a of addrs || []) {
+      if (a.family !== 'IPv4' || a.internal) continue;
+      if (a.address.startsWith('169.254')) continue;
+      if (prefix && !a.address.startsWith(prefix)) continue;
+      out.push(a.address);
+    }
+  }
   return [...new Set(out)];
 }
 async function getText(url, ms = 2000) {
@@ -121,22 +139,29 @@ async function probeRouter(bindIP) {
 
 async function main() {
   const ip = await primaryIP();
-  const router = await probeRouter(ip);
+  const loopback = HOST === '127.0.0.1' || HOST === 'localhost' || HOST === '::1';
+  const router = loopback ? null : await probeRouter(ip);
   console.log('');
   console.log('  太史公 · 课堂演示服务');
   console.log('  接口模式    ' + (HAS_KEY ? '在线生成（已配置 Key）' : '离线剧本包（未配置 Key）'));
   console.log('  监听        ' + HOST + ':' + PORT);
   console.log('');
   console.log('  教师机      http://localhost:' + PORT);
-  for (const a of lanIPs(ip))
-    console.log('  局域网      http://' + a + ':' + PORT + (a === ip ? '   <- 主用' : ''));
-  if (router && router.wan)
-    console.log('  10.x 网段   http://' + router.wan + ':' + PORT +
-      (router.mapped
-        ? '   （UPnP 映射已启用' + (router.days ? '，剩约 ' + router.days + ' 天' : '') + '）'
-        : '   （UPnP 映射未找到，需重新配置）'));
-  else
-    console.log('  10.x 网段   未探测到路由器；跨网段使用时请查路由器 WAN IP');
+  if (loopback) {
+    /* 只监听回环地址时，局域网地址一定连不上——不要打印误导学生 */
+    console.log('  局域网      仅本机可访问（多设备演示请先在 server/.env 里设 TSG_HOST=0.0.0.0）');
+  } else {
+    const ips = lanIPs(ip);
+    if (ips.length) {
+      for (const a of ips) console.log('  局域网      http://' + a + ':' + PORT + (a === ip ? '   <- 主用' : ''));
+    } else {
+      console.log('  局域网      未发现物理网卡地址（可能处于虚拟/VPN 网络）');
+    }
+    if (router && router.wan) {
+      console.log('  路由器 WAN  ' + router.wan +
+        (router.mapped ? '   （UPnP 端口映射已启用）' : '   （未发现 UPnP 映射，跨网段访问需自行配置）'));
+    }
+  }
   console.log('  公网只读    ' + PAGES);
   console.log('');
   console.log('  Ctrl+C 停止。下课记得关服务 / 删 UPnP 映射。');

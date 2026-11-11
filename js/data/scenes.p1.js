@@ -87,7 +87,7 @@ const SCENES_P1 = {
   P4: {
     id: 'P4',
     title: '泰山封禅',
-    era: '元封元年 · 东巡道上',
+    era: '太初三年 · 东巡道上',
     art: 'assets/scene/P4.jpg',
     text:
       '封禅的队伍走了三个月。\n\n' +
@@ -106,7 +106,7 @@ const SCENES_P1 = {
   P5: {
     id: 'P5',
     title: '朝中结交',
-    era: '太初年间 · 长安',
+    era: '太初四年 · 长安',
     art: 'assets/scene/P5.jpg',
     text:
       '廷尉杜周的门前，车马终日不绝。\n\n' +

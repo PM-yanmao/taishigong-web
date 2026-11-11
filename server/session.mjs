@@ -6,13 +6,16 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const LOG_DIR = path.join(ROOT, 'logs');
+const SESSION_LIMIT = 200;
 const sessions = new Map();
+const logsOff = /^(0|off|false|no)$/i.test(String(process.env.TSG_LOG || ''));
 
 function stamp() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 function append(file, obj) {
+  if (logsOff) return;                      // TSG_LOG=off：课堂结束即焚，不落盘学生输入
   try {
     fs.mkdirSync(LOG_DIR, { recursive: true });
     fs.appendFileSync(path.join(LOG_DIR, file), JSON.stringify(obj) + '\n', 'utf8');
@@ -21,7 +24,11 @@ function append(file, obj) {
 
 export function getSession(id) {
   const key = String(id || 'default').slice(0, 64);
-  if (!sessions.has(key)) sessions.set(key, { summary: '', recentTexts: [], usedImagery: [], turns: 0 });
+  if (!sessions.has(key)) {
+    sessions.set(key, { summary: '', recentTexts: [], usedImagery: [], turns: 0 });
+    /* 简易 LRU：多人长时间演示时不无限涨内存 */
+    if (sessions.size > SESSION_LIMIT) sessions.delete(sessions.keys().next().value);
+  }
   return sessions.get(key);
 }
 

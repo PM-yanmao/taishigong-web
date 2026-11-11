@@ -72,14 +72,29 @@
   }
 
   function buildSVG(opts) {
-    var player = opts.player || {};
-    var orthodox = opts.orthodox || {};
-    var size = opts.size || 560;
+    opts = opts || {};
+    /* 导入存档里的数值可能是字符串甚至 HTML：这里统一转成 0–100 的数字，
+     * 防止 SVG 字符串拼接被注入。 */
+    function num(v, dflt) {
+      var n = Number(v);
+      if (!Number.isFinite(n)) return dflt;
+      return Math.max(0, Math.min(100, Math.round(n)));
+    }
+    var playerSrc = opts.player || {};
+    var orthodoxSrc = opts.orthodox || {};
+    var player = {}, orthodox = {};
+    AXES.forEach(function (ax) {
+      player[ax.key] = num(playerSrc[ax.key], 0);
+      orthodox[ax.key] = num(orthodoxSrc[ax.key], 0);
+    });
+    var size = Number(opts.size);
+    if (!Number.isFinite(size) || size <= 0) size = 560;
+    size = Math.max(200, Math.min(1200, Math.round(size)));
     var pad = opts.pad || 96;
     var cx = size / 2;
     var cy = size / 2;
     var R = size / 2 - pad;
-    var similarity = opts.similarity;
+    var similarity = opts.similarity == null ? undefined : num(opts.similarity, 0);
 
     var parts = [];
     parts.push('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + size + ' ' + size + '" class="tsg-radar" width="100%" role="img" aria-label="人格雷达图：黄线为玩家，灰虚线为司马迁">');

@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="《太史公》互动叙事游戏 · 自定义文本选项">
 <title>太史公</title>
+<link rel="icon" href="data:,">
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -31,5 +32,24 @@
 
 <script src="js/ui/screens.js"></script>
 <script src="js/app.js"></script>
+<script>
+/* 加载期自检：脚本顺序/文件名改错时，直接在控制台点名缺了谁，
+ * 而不是等到某个页面白屏再看「出了点问题」。 */
+(function () {
+  var miss = [];
+  if (typeof SCENES !== 'object' || !SCENES) miss.push('SCENES');
+  if (typeof START_NODE !== 'string') miss.push('START_NODE');
+  if (typeof ENDINGS !== 'object') miss.push('ENDINGS');
+  if (typeof PIECES !== 'object') miss.push('PIECES');
+  if (typeof CHARACTERS !== 'object') miss.push('CHARACTERS');
+  if (typeof TSG_Guard !== 'object') miss.push('TSG_Guard');
+  if (typeof TSG_Intent !== 'object') miss.push('TSG_Intent');
+  if (typeof TSG_Compose !== 'object') miss.push('TSG_Compose');
+  if (typeof TSG_Client !== 'object') miss.push('TSG_Client');
+  if (typeof TSG_Radar !== 'object') miss.push('TSG_Radar');
+  if (typeof APP !== 'object') miss.push('APP');
+  if (miss.length) console.error('[太史公] 脚本加载缺失：' + miss.join('、') + '（检查 index.html 的 script 顺序）');
+})();
+</script>
 </body>
 </html>

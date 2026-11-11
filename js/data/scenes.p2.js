@@ -72,8 +72,9 @@ const SCENES_P2 = {
         id: 'C',
         text: '了此残生',
         effect: { d: { jian: 5 } },
-        badIf: { stat: 'jian', max: 39, endingId: 13, cause: 'T3' },
-        next: '__END__',
+        /* 「了此残生」就是自尽：直接落到结局 13「戛然而止」（T3 分档）。
+         * 旧版用 badIf.max:39，而合法路径到 A3 时 jian 最低约 45，永远触发不了。 */
+        terminal: { endingId: 13, cause: 'T3' },
       },
     ],
   },
@@ -100,7 +101,7 @@ const SCENES_P2 = {
   H2: {
     id: 'H2',
     title: '收罪证',
-    era: '太始年间 · 尚书房',
+    era: '后元二年 · 尚书房',
     art: 'assets/scene/H2.jpg',
     text:
       '酷吏构陷忠良的文书，都从尚书房过。\n\n' +

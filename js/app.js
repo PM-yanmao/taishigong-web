@@ -39,7 +39,10 @@ function appBoot() {
   var cfg = (typeof TSG_CONFIG !== 'undefined' && TSG_CONFIG) || {};
   APP.freeLeft = cfg.freeLimit || 3;
   document.documentElement.classList.add('tsg-ready');
-  document.addEventListener('click', appClick);
+  /* 事件处理器统一兜底：任何渲染/点击异常都变成错误面板，而不是控制台里静默失效 */
+  document.addEventListener('click', function (e) {
+    try { appClick(e); } catch (err) { appFail((err && err.message) || String(err)); }
+  });
   document.addEventListener('keydown', appKey);
   document.addEventListener('change', appChange);
   document.addEventListener('error', appImgError, true);
@@ -55,10 +58,28 @@ function appBoot() {
 /** 探测本地接口；失败即离线剧本包模式，不打断演示 */
 function appProbe() {
   if (typeof TSG_Client === 'undefined') return;
-  TSG_Client.status().then(function (s) {
-    APP.netStatus = s;
-    if (APP.screen === 'start' || APP.screen === 'settings') appRender();
-  });
+  try {
+    Promise.resolve(TSG_Client.status()).then(function (s) {
+      APP.netStatus = s || { online: false, hasKey: false };
+      if (APP.screen === 'start' || APP.screen === 'settings') appRender();
+    }).catch(function () {});
+  } catch (e) {
+    /* 极老浏览器没有 fetch 时：保持离线模式，不弹错误面板 */
+    APP.netStatus = { online: false, hasKey: false };
+  }
+}
+
+/** 当前 run 的自书计数等：随存档一起持久化，续玩不能重置上限 */
+function appRunMeta() {
+  return {
+    freeLeft: APP.freeLeft,
+    customCount: APP.customCount,
+    recentTexts: APP.recentTexts.slice(-2),
+    usedImagery: APP.usedImagery.slice(-6),
+  };
+}
+function appSaveCurrent(nodeId) {
+  if (APP.playerId) storeSaveCurrent(APP.db, APP.playerId, nodeId, APP.state, appRunMeta());
 }
 
 function appOnline() {
@@ -141,12 +162,14 @@ function appRender() {
 function appFail(msg) {
   var host = document.getElementById('app');
   if (!host) return;
+  APP.busy = false;                       // 生成中出错后不要永久锁住自书按钮
   host.innerHTML =
     '<section class="screen"><div class="panel" style="margin:12vh auto">' +
     '<h2>出了点问题</h2>' +
     '<p class="hint">' + esc(msg) + '</p>' +
-    '<p class="hint">可以点下面的按钮回到开始；如反复出现，请把这句话发给制作人。</p>' +
-    '<div class="row"><button class="btn" data-action="home">回到开始</button></div>' +
+    '<p class="hint">可以点下面的按钮回到开始；若反复出现，多半是本机存档损坏，可清除记录重来。</p>' +
+    '<div class="row"><button class="btn" data-action="home">回到开始</button>' +
+    '<button class="btn" data-action="hard-reset">清除本机记录</button></div>' +
     '</div></section>';
 }
 
@@ -173,16 +196,25 @@ function appBeginRun() {
   APP.result = null;
   appResetFree();
   APP.screen = 'scene';
-  if (APP.playerId) storeSaveCurrent(APP.db, APP.playerId, APP.nodeId, APP.state);
+  appSaveCurrent(APP.nodeId);
   appRender();
 }
 
 function appResumeRun() {
   var p = APP.playerId && APP.db.players[APP.playerId];
-  if (!p || !p.current) return appBeginRun();
+  /* 存档节点可能因剧本改版而消失：退回重开一局，而不是卡在空白页 */
+  if (!p || !p.current || !SCENES[p.current.nodeId]) return appBeginRun();
   APP.nodeId = p.current.nodeId;
-  APP.state = p.current.state;
+  APP.state = p.current.state || createState();
   appResetFree();
+  /* 恢复 run 级计数：否则「继续」会重置自书 3 次上限、清掉排行榜的自书标记 */
+  var meta = p.current.meta;
+  if (meta) {
+    APP.freeLeft = typeof meta.freeLeft === 'number' ? meta.freeLeft : APP.freeLeft;
+    APP.customCount = meta.customCount || 0;
+    APP.recentTexts = Array.isArray(meta.recentTexts) ? meta.recentTexts.slice(-2) : [];
+    APP.usedImagery = Array.isArray(meta.usedImagery) ? meta.usedImagery.slice(-6) : [];
+  }
   APP.screen = 'scene';
   appRender();
 }
@@ -200,24 +232,32 @@ function appEnterPlayer() {
   return appBeginRun();
 }
 
-function appChoose(optId) {
+function appChoose(optId, opts) {
   var node = SCENES[APP.nodeId];
   if (!node || !APP.state) return;
+  var o = opts || {};
   try {
     var r = resolve(SCENES, APP.state, APP.nodeId, optId);
     if (!r.ok) return;
-    APP.state = collect(APP.state, Object.assign({}, r.effect || {}, {
+    var effect = Object.assign({}, r.effect || {});
+    /* 自书自动承接的选项：照常推进分支与数值，但不点亮图鉴
+     *（攻略与页面文案都承诺「自书之笔不产出碎片」）。 */
+    if (o.skipPiece) delete effect.piece;
+    APP.state = collect(APP.state, Object.assign(effect, {
       nodeId: APP.nodeId,
       optionId: optId,
       badCause: r.badCause,
     }));
-    if (APP.playerId) storeSaveCurrent(APP.db, APP.playerId, APP.nodeId, APP.state);
 
+    /* 存档必须指向"下一步要显示的节点"。
+     * v1.2：旧版在推进前存当前节点，导致「继续」从已答过的一页重开，
+     * 可反复重答同一选项刷数值/碎片。这里先算下一步再落盘。 */
     if (r.endingId || r.nextNodeId === END_OF_STORY) return appFinish();
 
     var next = SCENES[r.nextNodeId];
     if (!next) return appFinish();
     APP.nodeId = r.nextNodeId;
+    appSaveCurrent(APP.nodeId);
     if (next.autoEnd) return appRender();
     APP.screen = 'scene';
     appRender();
@@ -262,6 +302,12 @@ function appFreeError(msg) {
   if (el) el.textContent = msg;
 }
 
+function appHome() {
+  APP.screen = 'start';
+  appRender();
+}
+
+/** 生成页面 → 下一节点。 */
 function appFreeWrite(text) {
   if (APP.busy) return;
   var cfg = (typeof TSG_CONFIG !== 'undefined' && TSG_CONFIG) || {};
@@ -279,8 +325,8 @@ function appFreeWrite(text) {
    * 离线：没有模型，词表命中才退回预制否定段兜底。 */
   var over = online ? null : hint;
   var cls = over ? { intent: 'REFUSAL', label: over.label } : TSG_Intent.classify(text);
-  var nextOptionId = over ? '' : TSG_Intent.resolveOption(node, APP.state, text, cls.intent);
-  if (!over && !nextOptionId) return appFreeError('此页没有可承接的走向，请选一项。');
+  var nextOptionId = over ? '' : TSG_Intent.resolveOption(node, APP.state, text, cls.matched === false ? '' : cls.intent);
+  if (!over && !nextOptionId) return appFreeError('此页没有可承接的走向，请直接选一项。');
 
   APP.busy = true;
   APP.freeOpen = false;
@@ -398,6 +444,8 @@ function appShowGenerated(data, payload, cls, fallbackReason, alreadyStreamed, o
   APP.freeLeft = Math.max(0, APP.freeLeft - 1);
   APP.busy = false;
   APP.screen = 'generated';
+  /* 立刻落盘：否则在生成页直接关页面，重进后自书次数会回到扣减前 */
+  appSaveCurrent(APP.nodeId);
   appRender();
 }
 
@@ -406,7 +454,8 @@ function appGeneratedContinue() {
   APP.pendingOptionId = null;
   APP.generatedPage = null;
   APP.screen = 'scene';
-  if (opt) return appChoose(opt);
+  /* 自书自动承接既有选项：推进分支与数值，但这一笔不点亮图鉴 */
+  if (opt) return appChoose(opt, { skipPiece: true });
   appRender();
 }
 
@@ -430,8 +479,7 @@ function appClick(e) {
     case 'resume':
       return appResumeRun();
     case 'home':
-      APP.screen = 'start';
-      return appRender();
+      return appHome();
     case 'go-gallery':
       APP.screen = 'gallery';
       return appRender();
@@ -446,6 +494,7 @@ function appClick(e) {
       return appRender();
     case 'profile-switch':
       APP.db.activeId = el.getAttribute('data-id');
+      APP.playerId = APP.db.activeId;          // 同步当前玩家，避免「继续」接上别人的存档
       storeSave(APP.db);
       return appRender();
     case 'play-again':
@@ -468,6 +517,15 @@ function appClick(e) {
     case 'free-submit': {
       var ta = document.getElementById('free-input');
       return appFreeWrite(ta ? ta.value : '');
+    }
+    case 'free-sample': {
+      /* 起句示例：点一下填进输入框，玩家可改可删再落笔 */
+      var taSample = document.getElementById('free-input');
+      if (taSample) {
+        taSample.value = el.getAttribute('data-text') || '';
+        taSample.focus();
+      }
+      return;
     }
     case 'generated-continue':
       return appGeneratedContinue();
@@ -492,6 +550,33 @@ function appClick(e) {
       try { sessionStorage.setItem('tsg:apiBase', val); } catch (e) {}
       APP.apiBase = val;
       return appProbe();
+    }
+    case 'token-save': {
+      var tb = document.getElementById('api-token');
+      var tk = tb ? String(tb.value || '').trim() : '';
+      if (typeof TSG_CONFIG !== 'undefined') TSG_CONFIG.token = tk;
+      try { sessionStorage.setItem('tsg:token', tk); } catch (e) {}
+      return appProbe();
+    }
+    case 'clear-records': {
+      if (!window.confirm('清除本机全部记录？所有玩家的 ID、局数、图鉴都会删除，无法恢复。')) return;
+      storeClear();
+      APP.db = storeEmpty();
+      APP.playerId = null;
+      APP.result = null;
+      APP.nodeId = null;
+      APP.state = null;
+      return appHome();
+    }
+    case 'hard-reset': {
+      storeClear();
+      APP.db = storeEmpty();
+      APP.playerId = null;
+      APP.result = null;
+      APP.nodeId = null;
+      APP.state = null;
+      APP.busy = false;
+      return appHome();
     }
     case 'leader-filter':
       APP.leaderOnlyOrthodox = !APP.leaderOnlyOrthodox;
@@ -534,7 +619,8 @@ function appKey(e) {
     if (!node) return;
     var opts = visibleOptions(node, APP.state);
     var opt = opts[Number(e.key) - 1];
-    if (opt && (!opt.gate || passGate(APP.state, opt.gate))) appChoose(opt.id);
+    var usable = !!opt && (!opt.gate || passGate(APP.state, opt.gate) || opt.gate.selectableWhenFailing);
+    if (usable) appChoose(opt.id);
     return;
   }
   if (e.key === 'Enter' && APP.screen === 'generated') return appGeneratedContinue();

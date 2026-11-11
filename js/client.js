@@ -6,6 +6,12 @@
     var c = g.TSG_CONFIG || {};
     return String(c.apiBase || '').replace(/\/$/, '');
   }
+  function headers(extra) {
+    var c = g.TSG_CONFIG || {};
+    var h = { 'Content-Type': 'application/json' };
+    if (c.token) h['X-TSG-Token'] = String(c.token);
+    return Object.assign(h, extra || {});
+  }
 
   function request(path, opts, timeoutMs) {
     var ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
@@ -29,7 +35,7 @@
     var c = g.TSG_CONFIG || {};
     return request('/api/generate', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: headers(),
       body: JSON.stringify(payload),
     }, c.timeoutMs || 15000).then(function (j) {
       if (!j || !j.ok) throw new Error((j && j.error) || '生成失败');
@@ -45,7 +51,7 @@
     var ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
     var timer = setTimeout(function () { if (ctrl) ctrl.abort(); }, c.streamTimeoutMs || 32000);
     var done = function (v) { clearTimeout(timer); return v; };
-    var init = { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) };
+    var init = { method: 'POST', headers: headers(), body: JSON.stringify(payload) };
     if (ctrl) init.signal = ctrl.signal;
 
     return fetch(base() + '/api/generate-stream', init).then(function (r) {

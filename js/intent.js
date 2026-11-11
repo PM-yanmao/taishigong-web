@@ -28,7 +28,9 @@
       it.kw.forEach(function (k) { if (t.indexOf(k) >= 0) score += k.length; });
       if (score > best.score) best = { id: it.id, label: it.label, score: score };
     });
-    return { intent: best.id, label: best.label, confidence: Math.min(1, best.score / 6) };
+    /* matched=false 表示这句话没有任何可识别的动作倾向：不要假装它属于「执笔」，
+     * 否则中性输入会被默认送进 WRITE 亲和选项（L1→A 辩护、L3→X1 宫刑）。 */
+    return { intent: best.id, label: best.label, confidence: Math.min(1, best.score / 6), matched: best.score > 0 };
   }
 
   /* 字面重合度：用户文本与既有选项文案的字符交集 */
@@ -42,7 +44,9 @@
     return n;
   }
 
-  /** 返回当前节点下应走的既有选项 id；自定义输入永远不产生新边 */
+  /** 返回当前节点下应走的既有选项 id；自定义输入永远不产生新边。
+   *  没有任何字面重合、也没有意图亲和时返回 null ——
+   *  让前端提示「此页没有可承接的走向」，而不是静默取列表第一项。 */
   function resolveOption(node, state, text, intent) {
     var opts = (typeof visibleOptions === 'function' ? visibleOptions(node, state) : (node.options || []))
       .filter(function (o) {
@@ -51,14 +55,14 @@
         return true;
       });
     if (!opts.length) return null;
-    var affinity = (AFFINITY[node.id] || {})[intent];
-    var best = opts[0], bestScore = -1;
+    var affinity = intent ? (AFFINITY[node.id] || {})[intent] : null;
+    var best = opts[0], bestScore = 0;
     opts.forEach(function (o) {
       var s = overlap(String(text || ''), String(o.text || ''));
       if (o.id === affinity) s += 12;                      // 意图亲和优先
       if (s > bestScore) { bestScore = s; best = o; }
     });
-    return best.id;
+    return bestScore > 0 ? best.id : null;
   }
 
   g.TSG_Intent = {

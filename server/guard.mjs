@@ -69,7 +69,7 @@ export function normalizeCitations(data) {
     const key = pick.source + '|' + pick.text;
     if (!seen.has(key)) { seen.add(key); out.push({ source: pick.source, text: pick.text }); }
   });
-  if (!out.length) out.push({ source: white[0].source, text: white[0].text });
+  /* 模型没给引文时保持空数组：不要凭空挂一条真实出处，考据折页会误导学生 */
   data.citation = out.slice(0, 3);
   return data;
 }

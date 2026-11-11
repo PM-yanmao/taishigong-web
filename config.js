@@ -4,10 +4,15 @@
  * 若确实要从 https 页面调本机接口，可在设置页填 http://127.0.0.1:8787；
  * 注意浏览器对 https → http 的混合内容限制，各浏览器行为不一致。 */
 (function (g) {
-  var saved = '';
-  try { saved = (g.sessionStorage && g.sessionStorage.getItem('tsg:apiBase')) || ''; } catch (e) {}
+  var saved = '', token = '';
+  try {
+    saved = (g.sessionStorage && g.sessionStorage.getItem('tsg:apiBase')) || '';
+    token = (g.sessionStorage && g.sessionStorage.getItem('tsg:token')) || '';
+  } catch (e) {}
   g.TSG_CONFIG = {
     apiBase: saved,
+    token: token,
+    port: 8787,
     freeLimit: 3,
     minChars: 4,
     maxChars: 40,

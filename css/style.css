@@ -548,7 +548,7 @@ body::before {
   color: var(--gold); border: 1px solid var(--gold-dim);
 }
 .generated .prose.unroll p { opacity: 0; transform: translateY(6px); animation: unroll .5s ease-out forwards; }
-@keyframes unroll { to { opacity: 1; transform: none; } }
+/* @keyframes unroll 已在上方结局动画处定义，避免重复 */
 .generated .exam {
   max-width: var(--w-read); margin: 30px 0 0; padding: 14px 0;
   border-top: 1px dashed var(--line); border-bottom: 1px dashed var(--line);

@@ -143,7 +143,7 @@ const VARIANTS = Object.freeze({
   ],
   10: [{ key: 'default', test: () => true }],
   12: [
-    { key: 'plot', test: (s) => s.quan >= 80 },
+    { key: 'plot', test: (s) => s.quan >= 95 },   // 阈值取高段：HIDDEN 线在 H2 时 quan 可达 83–100
     { key: 'rash', test: () => true },
   ],
   13: [
@@ -167,6 +167,10 @@ function resolve(scenes, state, nodeId, optionId) {
   if (!node) return { ok: false, error: `节点不存在: ${nodeId}` };
   const opt = node.options.find((o) => o.id === optionId);
   if (!opt) return { ok: false, error: `选项不存在: ${nodeId}/${optionId}` };
+  /* 权威裁决层再校验一次 showIf：控制台直接调 resolve 也不能走隐藏选项 */
+  if (opt.showIf && !passGate(state, opt.showIf)) {
+    return { ok: false, error: 'hidden_option' };
+  }
 
   // 门槛：默认不可选（灰化）；配置 selectableWhenFailing 才允许冒险
   if (opt.gate && !passGate(state, opt.gate) && !opt.gate.selectableWhenFailing) {
