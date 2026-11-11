@@ -9,7 +9,8 @@ function esc(s) {
   });
 }
 
-/** 场域背景映射：10 张共用图覆盖 22 页（见 docs/07-美术需求清单.md） */
+/** 场域背景映射：10 张共用图覆盖 22 页（见 docs/07-美术需求清单.md）
+ *  作者丢入场景插画后（js/data/scene-art.js 登记），优先用场景图，否则回退共用背景。 */
 var NODE_BG = {
   P1: 'bg_river', P2: 'bg_lamp', P3: 'bg_archive', P4: 'bg_road', P5: 'bg_palace',
   P6: 'bg_camp', L1: 'bg_court', L2A: 'bg_trial', L2B: 'bg_road', L2C: 'bg_lamp',
@@ -18,14 +19,35 @@ var NODE_BG = {
   C1: 'bg_lamp', C2: 'bg_lamp', D1: 'bg_execution', R1: 'bg_road',
 };
 
+/** 场景插画清单：tools/art_pipeline.py --scan 生成；作者还没丢图时 ids 为空对象 */
+function sceneArtIds() {
+  return (typeof TSG_SCENE_ART !== 'undefined' && TSG_SCENE_ART && TSG_SCENE_ART.ids) || {};
+}
+
 function bgPath(node) {
+  var scene = sceneArtIds()[node.id];
+  if (scene && scene.jpg) return scene.jpg;
   var name = NODE_BG[node.id];
   return name ? 'assets/bg/' + name + '.jpg' : node.art || '';
 }
 
-/** 背景图插槽：缺图时由全局 error 捕获替换为占位块 */
+/** 原图 → WebP：仅当清单登记了映射才返回，避免白跑 404 与无谓回退 */
+function webpOf(path) {
+  var map = (typeof TSG_SCENE_ART !== 'undefined' && TSG_SCENE_ART && TSG_SCENE_ART.webp) || null;
+  return (map && path && map[path]) || '';
+}
+
+/** 图片插槽：有 WebP 时 <picture> 优先、jpg 兜底；缺图由全局 error 捕获替换为占位块 */
+function artImage(path, alt) {
+  var webp = webpOf(path);
+  return '<picture>' +
+    (webp ? '<source type="image/webp" srcset="' + esc(asset(webp)) + '">' : '') +
+    '<img src="' + esc(asset(path)) + '" alt="' + esc(alt || '') + '">' +
+    '</picture>';
+}
+
 function artBg(path, label) {
-  return '<div class="art" data-label="' + esc(label) + '"><img src="' + esc(asset(path)) + '" alt=""></div>';
+  return '<div class="art" data-label="' + esc(label) + '">' + artImage(path, '') + '</div>';
 }
 
 function gateReason(opt) {
@@ -251,7 +273,7 @@ function charactersScreen() {
     return (
       '<article class="char-card">' +
       '<div class="char-thumb" data-label="' + esc(c.name) + '">' +
-      '<img src="' + esc(asset(c.portrait)) + '" alt="' + esc(c.name) + '">' +
+      artImage(c.portrait, c.name) +
       '</div>' +
       '<div class="char-meta">' +
       '<h3>' + esc(c.name) + '</h3>' +
@@ -283,9 +305,9 @@ function galleryScreen(db) {
     var px = (cell.col * 100) / (GALLERY_COLS - 1);
     var py = (cell.row * 100) / (GALLERY_ROWS - 1);
     var pos = 'background-position:' + px.toFixed(2) + '% ' + py.toFixed(2) + '%';
-    var img = has ? 'background-image:url(&quot;' + esc(asset('assets/mural.jpg')) + '&quot;);' : '';
+    /* 图鉴底图由 CSS .piece.has 的 image-set 选择 WebP/JPG，这里只定位碎片 */
     cells +=
-      '<div class="piece' + (has ? ' has' : '') + '" style="' + (has ? img + pos : '') + '" title="' + esc(has ? p.name : '未点亮') + '">' +
+      '<div class="piece' + (has ? ' has' : '') + '" style="' + (has ? pos : '') + '" title="' + esc(has ? p.name : '未点亮') + '">' +
       (has ? '' : '<span class="piece-no">' + p.id + '</span>') +
       '</div>';
   });

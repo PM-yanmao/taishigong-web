@@ -43,4 +43,11 @@ const CHARACTERS = [
     portrait: 'assets/char/char_duzhou.jpg',
     bio: '南阳杜衍人。酷吏。为廷尉时，办案不依律令，专候上意：上所欲挤者，因而陷之；上所欲释者，久系待问。',
   },
+  {
+    id: 'yangyun',
+    name: '杨恽',
+    title: '平通侯',
+    portrait: 'assets/char/char_yangyun.jpg',
+    bio: '司马迁外孙，宣帝时封平通侯。他祖述外祖之书，上之于朝，《太史公书》遂得宣布于世。',
+  },
 ];
