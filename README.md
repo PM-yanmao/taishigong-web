@@ -78,6 +78,23 @@ npm run check      # 只探测地址，不启动服务
 
 页面「设置 → 本机记录 → 清除本机记录」可一键清空本机所有玩家 ID / 局数 / 图鉴（共享设备下课前用）。
 
+### 5. 跨网段访问（10.x / 路由器后）
+
+默认只适合同一局域网（教师机 `192.168.x.x:8787`）。如果学生设备在 **另一个网段**（例如校园网 `10.x`，教师机在路由器后面），需要：
+
+1. `.env` 设 `TSG_HOST=0.0.0.0`，并设一个 `TSG_TOKEN`（暴露到校园网必须加口令）；
+2. 在路由器上做端口映射 `TCP 8787 → 教师机 LAN IP:8787`。路由器支持 UPnP 时可以直接用仓库里的脚本：
+
+```bash
+node tools/upnp-map.mjs list     # 看现有映射与路由器 WAN IP
+node tools/upnp-map.mjs add      # 加 8787 → 本机 LAN IP（租期由路由器决定）
+node tools/upnp-map.mjs remove   # 下课后删除
+```
+
+3. 学生访问 `http://<路由器 WAN IP>:8787/?token=<TSG_TOKEN>`。口令会自动存进该标签页并清掉地址栏参数；也可在页面「设置 → 接口地址」里手动填。
+
+注意：`http://<WAN IP>:8787` 在教师机自己浏览器里可能打不开（多数路由器不支持 NAT 回环/Hairpin），这不代表映射失败——用手机连校园网测才准。映射会随路由器重启或租期到期消失，重跑 `add` 即可。**课堂结束记得 `remove` 并把 `TSG_HOST` 改回 `127.0.0.1`。**
+
 ---
 
 ## 三、GitHub Pages 部署
@@ -124,6 +141,7 @@ tools/
   art_pipeline.py     美术资产管线（开发期，Python+Pillow）：校验/归一化/WebP/清单
   art_grade.py        批量调色（开发期）：把 GPT 出图调成项目的冷青灰 + 暖灯金
   art-batch-map.json  本批出图 → 节点 id 的映射与调色目标
+  upnp-map.mjs        UPnP 端口映射（课堂运维）：list / add / remove TCP 8787
 assets/
   bg/ char/ ending/   现有 38 张图（jpg 兜底）+ assets/webp/ 对应的 WebP
   scene/              22 张场景插画位（已就位 L1/L2A/L3/A1/A2/A3，其余回退 bg/ 共用背景）

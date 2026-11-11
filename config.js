@@ -9,6 +9,17 @@
     saved = (g.sessionStorage && g.sessionStorage.getItem('tsg:apiBase')) || '';
     token = (g.sessionStorage && g.sessionStorage.getItem('tsg:token')) || '';
   } catch (e) {}
+  /* 课堂口令也可以走 URL：?token=xxx（存进 sessionStorage 后从地址栏抹掉） */
+  try {
+    var m = /[?&]token=([^&]+)/.exec((g.location && g.location.search) || '');
+    if (m) {
+      token = decodeURIComponent(m[1]);
+      g.sessionStorage && g.sessionStorage.setItem('tsg:token', token);
+      if (g.history && g.history.replaceState) {
+        g.history.replaceState(null, '', (g.location.pathname || '/') + (g.location.hash || ''));
+      }
+    }
+  } catch (e) {}
   /* 自书开放范围与字数由 js/data/freewrite.js 单点定义（服务端读同一份） */
   var F = g.TSG_FREEWRITE || {};
   g.TSG_CONFIG = {
