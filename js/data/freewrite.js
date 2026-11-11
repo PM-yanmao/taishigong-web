@@ -9,7 +9,7 @@
  * UMD：浏览器 globalThis.TSG_FREEWRITE，Node require() 同一份。 */
 (function (g) {
   var F = {
-    version: '1.2.0',
+    version: '1.3.0',
     /* 在线模式下开放自书的页面：朝议 → 议罪 → 生死抉择 → 世态炎凉 → 武帝审查 → 任安之信 */
     openNodes: ['L1', 'L2A', 'L3', 'A1', 'A2', 'A3'],
     /* 离线剧本包模式只保留有预制素材的两页 */

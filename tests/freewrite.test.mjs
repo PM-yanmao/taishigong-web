@@ -14,7 +14,7 @@ const FREE = toHost(boot.globals.TSG_FREEWRITE);
 const CFG = toHost(boot.globals.TSG_CONFIG);
 
 test('freewrite：开放节点都存在，且 config.js 读取同一份配置', () => {
-  assert.equal(FREE.version, '1.2.0');
+  assert.equal(FREE.version, '1.3.0');
   assert.ok(Array.isArray(FREE.openNodes) && FREE.openNodes.length >= 6);
   for (const id of FREE.openNodes) assert.ok(data.SCENES[id], `开放节点 ${id} 不存在`);
   for (const id of FREE.offlineNodes) {

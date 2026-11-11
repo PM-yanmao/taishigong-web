@@ -111,6 +111,7 @@ js/
   data/endings.js     13 个结局的标题/副题/正文变体
   data/characters.js  人物档案
   data/genpack.js     离线剧本包：设定/文风/框架/补白
+  data/scene-art.js   场景插画清单（tools/art_pipeline.py 生成：哪些节点已有场景图、WebP 映射）
 server/
   index.mjs           HTTP 服务：静态站点 + /api/*（零依赖）
   scenes.mjs          服务端读取同一份剧本数据（场景原文/选项白名单由服务端权威提供）
@@ -119,9 +120,15 @@ server/
   prompt.mjs          系统提示词与用户消息组装
   session.mjs         会话滚动记忆 + 教师课后抽查日志（logs/*.jsonl）
   .env.example        环境变量样例（复制为 .env）
+tools/
+  art_pipeline.py     美术资产管线（开发期，Python+Pillow）：校验/归一化/WebP/清单
+assets/
+  bg/ char/ ending/   现有 31 张图（jpg 兜底）+ assets/webp/ 对应的 WebP
+  scene/              22 张场景插画位（当前为空，缺图回退 bg/ 的 10 张共用背景）
 docs/
   review-2026-11.md   接手时的完整代码审查报告（历史快照）
   history-factcheck.md 史实线逐条考据报告（含出处、争议项与"未能核实"清单）
+  art-brief.md        22 张场景图 + 杨恽立绘的 GPT 提示词、规格与验收清单
 tests/                node:test 测试（npm test，零依赖）
 logs/                 运行期日志（已 gitignore，只保留 .gitkeep）
 ```
@@ -204,7 +211,7 @@ P1: {
 npm test
 ```
 
-用 Node 内置 `node:test`（零第三方依赖）覆盖：剧本数据一致性（节点/选项/结局/图鉴可达性）、引擎契约（resolve/collect/settle/gate/showIf）、自书配置与落点候选契约、文案规范（页长 150–260 字、选项 8–18 字、叙述层不用感叹问号）、离线剧本包拼装、服务端校验与提示词组装、前后端规则防漂移。测试不启动真实 HTTP、不调用真实模型。
+用 Node 内置 `node:test`（零第三方依赖）覆盖：剧本数据一致性（节点/选项/结局/图鉴可达性）、引擎契约（resolve/collect/settle/gate/showIf）、自书配置与落点候选契约、文案规范（页长 150–260 字、选项 8–18 字、叙述层不用感叹问号）、美术资产清单与引用存在性、离线剧本包拼装、服务端校验与提示词组装、前后端规则防漂移。测试不启动真实 HTTP、不调用真实模型。
 
 > 沙箱/受限环境里子进程管道会被拒（`node --test` 默认多进程），因此 `npm test` 用 `--experimental-test-isolation=none` 单进程跑；普通环境可用 `npm run test:isolated`。
 
@@ -222,11 +229,11 @@ npm test
 
 ## 八、接手备注 / 已知限制
 
-- 项目刻意保持**零依赖、无构建**：加测试也只用 `node:test`；不要为了一个小功能引入打包器。
+- 项目刻意保持**零依赖、无构建**：加测试也只用 `node:test`；不要为了一个小功能引入打包器。`tools/art_pipeline.py` 只在开发期用 Python+Pillow，运行时不依赖。
 - 代码注释里引用的 `docs/04-决策基线`、`docs/07-美术需求清单` 等资料**不在本仓库**（项目从更大的制作目录抽出来）。历史背景以代码与 `anchors.js` 为准。
-- 剧本节点 `art` 字段指向 `assets/scene/*.jpg`，仓库里没有这些图；实际背景由 `js/ui/screens.js` 的 `NODE_BG` 映射到 `assets/bg/bg_*.jpg`（10 张共用图覆盖 22 页）。`art` 仅作旧数据保留，缺图时页面会显示占位块而非报错。
+- 剧本节点 `art` 字段指向 `assets/scene/*.jpg`，这 22 张场景插画**尚未就位**：`bgPath()` 会优先读 `js/data/scene-art.js` 清单，没有登记就回退 `NODE_BG` 的 10 张共用背景。提示词与替换流程见 `docs/art-brief.md`；出图后跑一次 `tools/art_pipeline.py` 即可，无需改代码。
+- 人物档案已补第 7 张「杨恽」卡，但立绘是程序生成的临时占位（水墨宣纸底+字样）；真图同名覆盖 `assets/char/char_yangyun.jpg` 即可。武将/后宫等配角仍无立绘。
 - 模型输出质量依赖 `server/prompt.mjs` 的锚点与输出校验；改提示词后请跑 `npm test` 并至少手测一次在线自书（可行 / 越界 / 校验重写三条路径）。
-- 尚未处理的产品级问题：`anchors.persons` 有杨恽而人物档案只有 6 张卡；武将/后宫等配角没有立绘；`assets/scene/*.jpg` 场景插画缺失（见上条）。这些是美术与资料补齐，不影响运行。
 - 内容口径：白话为主、半文言点缀；史实线贴合《史记·太史公自序》《报任安书》《汉书·司马迁传》，虚构只发生在史实留白处。逐条考据与出处见 `docs/history-factcheck.md`；生年、《报任安书》作年等争议项在 `anchors.disputes` 里写明"两说并存、不得写死"。
 - 本仓库未声明开源许可证；对外分发或二次开发前请先与作者确认。
 
@@ -269,6 +276,16 @@ npm test
 - 落笔后给出反馈：史官读作什么意图、第几笔、能否做到；可行时列出可落的既有边——**多候选时由玩家自己选哪条路**，不再由系统替你选。
 - 服务端改为从同一份剧本数据读场景原文/选项，客户端只传这一行与落点 id；自书接口按 `freewrite.js` 的节点白名单与字数上限校验。
 - 自书承接不点亮图鉴（与攻略文案一致）；次数与落点一并进存档，续玩不重置。
+
+---
+
+## 十一、v1.3 美术资产管线（2026-11）
+
+- **提示词**：`docs/art-brief.md` 给出 22 张场景插画 + 杨恽立绘的 GPT 提示词，按 OpenAI 官方 Image prompting 指南的 Scene / Subject / Composition / Light / Style / Constraints 结构写，含参考图角色、短版模板、翻车修正话术与验收清单。
+- **替换流程**：图片按 `assets/scene/<节点id>.jpg` 命名丢进去 → `python tools/art_pipeline.py --normalize --scan --optimize` → 刷新页面。脚本自动归一化到 1920×1080、生成 WebP、重写 `js/data/scene-art.js` 清单；没登记的页面继续用共用背景，可增量替换。
+- **WebP**：现有 31 张 JPG（12.81 MB）转出 WebP 5.56 MB，省 **56.6%**；前端 `<picture>` 优先 WebP、JPG 兜底，图鉴母图用 CSS `image-set()`。
+- **杨恽**：人物档案第 7 张卡已补（`characters.js` + `char_yangyun.jpg` 占位立绘），真图同名覆盖即可。
+- 测试新增 `tests/art.test.mjs`（清单/文件存在性/WebP 成对/人物卡/结局图/加载顺序/`<picture>` 与回退），`npm test` 现为 **72 项**。
 
 ---
 
