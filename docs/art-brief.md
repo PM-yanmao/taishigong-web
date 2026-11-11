@@ -59,6 +59,7 @@ Constraints:   bamboo slips only (no paper books), no chairs or high furniture, 
 - **图 1 = 风格/配色参考**：`assets/bg/bg_court.jpg`。说明："Use image 1 only as the palette, lighting and ink-wash-edge reference — do not copy its subject, crowd or architecture."
 - **图 2 = 次要参考**（可选）：`assets/bg/bg_prison.jpg`（石材/冷光/雾的质感）。
 - 人物卡：**图 1 = 画风参考** `assets/char/char_simaqian.jpg`。说明："Match the ink-and-wash rice-paper portrait style of image 1; draw a different person."
+- **出了第一张之后**：用已接受的那张（如 `assets/scene/L1.jpg`）当图 1 风格锚，比 `bg_court` 更准——同一套建筑语言、光比、人物比例。说明："Use image 1 only as the visual style and palette reference for the same film; draw a different scene."
 
 **API 参数**（如果你走 API 而不是 ChatGPT 界面）：`size="1536x1024"`、`quality="high"`、复杂构图可把 `complexity` 调到 `high`；比例不对没关系，后面的脚本会中心裁切到 1920×1080。
 

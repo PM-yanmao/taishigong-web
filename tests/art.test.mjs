@@ -95,10 +95,6 @@ test('清单 webp 映射：成对且文件都在，路径遵循 assets/webp/<同
     if (webp !== expected) problems.push(`${jpg} 的 WebP 应为 ${expected}，实际 ${webp}`);
   }
   assert.deepEqual(problems, [], problems.join('；'));
-
-  // 场景图当前为空：webp 映射里不应混进 assets/scene/ 的残留路径
-  const staleScene = Object.keys(ART.webp).filter((p) => p.startsWith('assets/scene/'));
-  assert.deepEqual(staleScene, [], `清单里有场景图 WebP 映射，但 assets/scene/ 已没有对应原图: ${staleScene.join('、')}`);
 });
 
 /* ---------------------------------------------------------------- 场景目录 */

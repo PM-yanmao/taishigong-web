@@ -7,7 +7,12 @@
 (function (g) {
   var ART = {
     "version": 1,
-    "ids": {},
+    "ids": {
+      "L1": {
+        "jpg": "assets/scene/L1.jpg",
+        "webp": "assets/webp/scene/L1.webp"
+      }
+    },
     "webp": {
       "assets/bg/bg_archive.jpg": "assets/webp/bg/bg_archive.webp",
       "assets/bg/bg_camp.jpg": "assets/webp/bg/bg_camp.webp",
@@ -40,6 +45,7 @@
       "assets/ending/ending_12.jpg": "assets/webp/ending/ending_12.webp",
       "assets/ending/ending_13.jpg": "assets/webp/ending/ending_13.webp",
       "assets/mural.jpg": "assets/webp/mural.webp",
+      "assets/scene/L1.jpg": "assets/webp/scene/L1.webp",
       "assets/title.jpg": "assets/webp/title.webp"
     }
   };
